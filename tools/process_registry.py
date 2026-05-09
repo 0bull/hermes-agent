@@ -38,6 +38,52 @@ from tools.process_registry_results import load_completed_results, save_complete
 
 logger = logging.getLogger(__name__)
 
+def _stdin_guard_error(approval: dict) -> dict | None:
+    """Return a process-tool error response when stdin data is not approved.
+
+    Background processes can be interactive shells or interpreters.  Data sent
+    later through process.write/process.submit is therefore another command
+    execution channel and must not bypass the terminal approval hardline floor
+    or gateway/CLI dangerous-command approval flow.
+    """
+    if approval.get("approved"):
+        return None
+
+    status = approval.get("status") or "blocked"
+    return {
+        "status": status,
+        "error": approval.get("message") or "Process stdin rejected by approval policy",
+        "command": approval.get("command"),
+        "description": approval.get("description"),
+        "pattern_key": approval.get("pattern_key"),
+    }
+
+
+def _check_process_stdin_guards(data: str | bytes) -> dict | None:
+    """Apply command approval checks to process stdin payloads.
+
+    The terminal tool checks only the initial process command.  For running
+    shells/interpreters, stdin can carry follow-on commands, so the same local
+    command guard needs to run before bytes reach the process.
+    """
+    if not data:
+        return None
+    if isinstance(data, bytes):
+        try:
+            command_text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            return {
+                "status": "blocked",
+                "error": "Process stdin rejected: non-UTF-8 bytes cannot be safety-scanned",
+            }
+    else:
+        command_text = data
+    from tools.terminal_tool import _check_all_guards
+
+    approval = _check_all_guards(command_text, "local")
+    return _stdin_guard_error(approval)
+
+
 # Crash-recovery checkpoint (gateway only)
 CHECKPOINT_PATH = get_hermes_home() / "processes.json"
 _CHECKPOINT_PATH_AT_IMPORT = CHECKPOINT_PATH
@@ -2374,6 +2420,14 @@ class ProcessRegistry(ProcessCheckpointMixin):
 
     def write_stdin(self, session_id: str, data: str) -> dict:
         """Send raw data to a running process's stdin (no newline appended)."""
+
+        # Second-stage execution channel: the launcher (``bash``) passed the terminal guard, so the
+        # follow-on command text must pass the same guard before it reaches a live shell/interpreter.
+        session = self.get(session_id)
+        if session is not None and not session.exited:
+            guard_error = _check_process_stdin_guards(data)
+            if guard_error is not None:
+                return guard_error
 
         def via_pty(pty):
             # pywinpty expects str on Windows; ptyprocess expects bytes on POSIX.

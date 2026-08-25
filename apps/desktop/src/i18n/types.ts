@@ -3859,6 +3859,7 @@ export interface Translations {
       editModels: string
       followDefault: string
       refreshModels: string
+      pinned: string
       fast: string
       free: string
       cacheRead: string
@@ -3869,6 +3870,9 @@ export interface Translations {
       options: string
       thinking: string
       fast: string
+      pin: string
+      unpin: string
+      shiftClickHint: string
       effort: string
       minimal: string
       low: string

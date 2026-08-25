@@ -132,10 +132,9 @@ function staleFullscreenWorkArea(state, displays) {
 
 // Sanitized state (or null) → BrowserWindow size/position options. Always sets
 // width/height, capped to the largest current display so a size saved on a
-// since-disconnected bigger monitor can't exceed every screen the user now has.
+// since-disconnected bigger monitor can't exceed any screen the user now has.
 // A trusted saved position is then capped and clamped to the work area it
-// meaningfully overlaps; otherwise Electron centers the window.
-function computeWindowOptions(state, displays, platform = process.platform): WindowOptions {
+// meaningfully overlaps; otherwise Electron centers the window.function computeWindowOptions(state, displays, platform = process.platform): WindowOptions {
   const opts: WindowOptions = {
     width: finite(state?.width) ? state.width : DEFAULT_WIDTH,
     height: finite(state?.height) ? state.height : DEFAULT_HEIGHT

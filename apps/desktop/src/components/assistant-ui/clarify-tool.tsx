@@ -474,6 +474,33 @@ function ClarifyToolPending(props: ToolCallMessagePartProps) {
   // disabled preview immediately instead of a spinner (the single-question
   // card does the same while request_id races the tool block).
   if (request?.questions?.length || fromArgs.questions) {
+    // Skew guard (#123126): the canonical tool shape is `questions[]` even
+    // for one question, but a backend without the batch wire parks one
+    // single-shape request per question instead. The batch card would sit a
+    // permanently-disabled "0 of 1 answered" preview while that live request
+    // times out unanswered — so one entry plus a parked single request takes
+    // the live single card, whose own question-text match (trimmed) still
+    // stands down when the two disagree.
+    // ponytail: single-entry skew only; a multi-entry batch against looped
+    // single requests stays a preview (per-question fallback needs N cards).
+    const skewedEntry =
+      !request?.questions?.length && request?.question && fromArgs.questions?.length === 1
+        ? fromArgs.questions[0]
+        : undefined
+
+    if (skewedEntry) {
+      const { choices, multiSelect, question } = skewedEntry
+
+      return (
+        <ClarifyToolSinglePending
+          fromArgs={{ choices, multiSelect, question }}
+          onAnswered={() => setAnswered(true)}
+          request={request}
+          undelivered={undelivered}
+        />
+      )
+    }
+
     return (
       <ClarifyToolBatchPending
         fromArgs={fromArgs}
@@ -527,7 +554,12 @@ function ClarifyToolSinglePending({
       return null
     }
 
-    if (fromArgs.question && request.question && fromArgs.question !== request.question) {
+    // Trim before comparing: the backend strips question text before parking
+    // the request (`tools/clarify_tool.py` `.strip()` on both the single and
+    // looped-batch paths) while the tool args carry the model's raw text, so
+    // padding alone would stand the card down into the same dead disabled
+    // state this PR exists to remove (#123126 review follow-up).
+    if (fromArgs.question && request.question && fromArgs.question.trim() !== request.question.trim()) {
       return null
     }
 

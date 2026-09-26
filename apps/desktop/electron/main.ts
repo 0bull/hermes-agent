@@ -114,7 +114,7 @@ import {
   BROWSER_WINDOW_WIDTH,
   buildBrowserWindowUrl
 } from './browser-windows'
-import { createBundleSkewChecker } from './bundle-skew'
+import { createBundleSkewProbe } from './bundle-skew'
 import { detectBundleSwap, readBundleSwapStamp } from './bundle-swap'
 import { registerChatOnboardingWindow } from './chat-onboarding-window'
 import { provisionCliLinks } from './cli-provision'
@@ -3521,6 +3521,11 @@ function resolveUpdateRoot() {
 
   return candidates.find(isGitCheckout) || candidates[0] || ACTIVE_HERMES_ROOT
 }
+
+function runGit(args, options: any = {}): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return execGit(resolveGitBinary(), args, options)
+}
+
 
 function emitUpdateProgress(payload) {
   const merged = { stage: 'idle', message: '', percent: null, error: null, ...payload, at: Date.now() }
@@ -18508,14 +18513,21 @@ function resolveHermesVersion(scope: { connectionId?: string; profile?: string }
 // apps/desktop/, and warn when the running renderer is provably behind.
 // Fail-quiet: dev runs (no stamp), non-git builds, and shallow-clone gaps all
 // report in-sync rather than risk a false "your install is torn" warning.
-const checkRendererSkew = createBundleSkewChecker(
-  INSTALL_STAMP,
-  (args, options) => execGit(resolveGitBinary(), args, options),
-  { isUpdating: () => updateGateReason(updateGateDeps()) !== null }
-)
+// One probe for the whole process: concurrent callers (window focus, the
+// update poller, checkUpdates, About) share a single in-flight run, and a
+// result is reused while HEAD is unchanged — a probe hit costs one
+// `rev-parse`. Without it each caller spawned its own merge-base/rev-list
+// pair, and a treeless partial clone's lazy fetch could hold a core for
+// minutes. The timeout aborts a hung git so nothing outlives the probe.
+// resolveUpdateRoot is called per probe: dev can retarget the tree at runtime.
+const rendererSkewProbe = createBundleSkewProbe({
+  stamp: INSTALL_STAMP,
+  runGit,
+  repoRoot: resolveUpdateRoot
+})
 
 async function detectRendererSkew() {
-  return checkRendererSkew(resolveUpdateRoot())
+  return rendererSkewProbe()
 }
 
 // Re-resolve the live Hermes version and push it into the native About panel

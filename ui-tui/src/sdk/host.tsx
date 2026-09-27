@@ -3,7 +3,7 @@ import { useStore } from '@nanostores/react'
 import { Component, type ReactNode } from 'react'
 
 import { $overlayState, patchOverlayState } from '../app/overlayStore.js'
-import { $uiTheme } from '../app/uiStore.js'
+import { $uiState, $uiTheme } from '../app/uiStore.js'
 import { recordParentLifecycle } from '../lib/parentLog.js'
 
 import { getWidgetApp } from './registry.js'
@@ -171,6 +171,42 @@ interface RenderCtx {
   t: never
 }
 
+// ── dock/rail ordering (#69269) ───────────────────────────────────────
+
+/**
+ * `display.tui_widgets.order` (#69269): listed ids render in list position,
+ * unlisted ones keep their launch order after them. null/unknown ids = the
+ * input order untouched.
+ */
+const sortByWidgetOrder = (actives: ActiveWidget[]): ActiveWidget[] => {
+  const order = $uiState.get().widgetOrder
+
+  if (!order?.length) {
+    return actives
+  }
+
+  const rank = new Map(order.map((id, i) => [id, i]))
+
+  return [...actives].sort((a, b) => {
+    const ra = rank.get(a.appId)
+    const rb = rank.get(b.appId)
+
+    if (ra !== undefined && rb !== undefined) {
+      return ra - rb
+    }
+
+    if (ra !== undefined) {
+      return -1
+    }
+
+    if (rb !== undefined) {
+      return 1
+    }
+
+    return 0 // stable — launch order among unlisted
+  })
+}
+
 const useRenderCtx = (): RenderCtx => {
   const t = useStore($uiTheme)
   const { stdout } = useStdout()
@@ -198,7 +234,7 @@ const renderApp = (active: ActiveWidget, ctx: RenderCtx) => {
 
 const CardStack = ({ apps, ctx }: { apps: ActiveWidget[]; ctx: RenderCtx }) => (
   <Box flexDirection="column" rowGap={1}>
-    {apps.map(active => (
+    {sortByWidgetOrder(apps).map(active => (
       <Box key={active.appId}>{renderApp(active, ctx)}</Box>
     ))}
   </Box>
@@ -215,11 +251,14 @@ export function ActiveWidgetSlot(): ReactNode {
 
 /** An in-FLOW dock row: reserves real rows in the chrome (never covers
  *  content), right-aligned cards. `dock-top` renders under the top status
- *  bar, `dock-bottom` above the bottom one. */
+ *  bar, `dock-bottom` above the bottom one. Cards sort by
+ *  `display.tui_widgets.order` (listed ids in list position, unlisted keep
+ *  launch order after them) — renaming files with numeric prefixes is no
+ *  longer the only way to place widgets. */
 export function AmbientDock({ placement }: { placement: 'dock-bottom' | 'dock-top' }): ReactNode {
   const overlay = useStore($overlayState)
   const ctx = useRenderCtx()
-  const docked = overlay.ambient.filter(active => zoneOf(active) === placement)
+  const docked = sortByWidgetOrder(overlay.ambient.filter(active => zoneOf(active) === placement))
 
   if (!docked.length) {
     return null

@@ -82,6 +82,7 @@ export const frOverrides = {
         serverNeedsAuth: 'Authentification requise',
         serverOff: 'Désactivé',
         serverOn: 'Activé',
+        serverOnDemand: 'À la demande',
         serverOnUnused: 'Activé, inutilisé'
       },
       fact: {

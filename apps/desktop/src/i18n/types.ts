@@ -209,6 +209,7 @@ export interface Translations {
         serverNeedsAuth: string
         serverOff: string
         serverOn: string
+        serverOnDemand: string
         serverOnUnused: string
       }
       fact: {

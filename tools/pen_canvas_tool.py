@@ -132,7 +132,7 @@ PEN_CANVAS_SCHEMA = {
         "(args: {url?, selector?: one element by CSS selector, else the whole "
         "page}) — it loads url in the desktop's preview browser (or uses the "
         "page already open there), opens a canvas named after the page if this "
-        "chat has none, imports, and zooms the canvas to the result. It returns "
+        "chat has none, and imports; the editor frames the result. It returns "
         "the top-level node ids it added (nodes: [{id, name}]) — design against "
         "those next. Reach for it whenever the user wants a "
         "website, landing page or UI component copied, cloned, traced or "
@@ -140,9 +140,11 @@ PEN_CANVAS_SCHEMA = {
         "asks to redesign an existing site: offer 'I can import it to the "
         "canvas' even if no canvas is open. "
         "Any other action is an editor tool "
-        "from that list, forwarded verbatim. Workflow: open → use the "
-        "returned tools → edit in small steps. If no Canvas tab is open, "
-        "call open first (import opens one itself)."
+        "from that list, forwarded verbatim. Workflow: open → read_skill "
+        "(the editor's design guidelines — read them before designing anything) "
+        "→ get_style (the document's palette, type and spacing — match it) → "
+        "use the returned tools → edit in small steps. If no Canvas tab is "
+        "open, call open first (import opens one itself)."
     ),
     "parameters": {
         "type": "object",

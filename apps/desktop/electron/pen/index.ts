@@ -10,4 +10,4 @@
 //   - state.ts      document registry + event feed
 
 export { shutdownPenHost } from './documents'
-export { syncPenWebTheme, wirePenCanvas } from './wire'
+export { wirePenCanvas } from './wire'

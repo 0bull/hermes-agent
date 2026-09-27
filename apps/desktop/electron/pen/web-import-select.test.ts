@@ -2,7 +2,13 @@ import assert from 'node:assert/strict'
 
 import { test } from 'vitest'
 
-import { ancestorSelector, importedNodes, parseTopLevelNodes, resolveImportMode } from './web-import-select'
+import {
+  ancestorSelector,
+  importedNodes,
+  parseTopLevelNodes,
+  resolveImportMode,
+  starterFrames
+} from './web-import-select'
 
 test('a selector always means a selection import, whatever mode says', () => {
   assert.equal(resolveImportMode({ selector: '#hero', mode: 'page' }), 'selection')
@@ -27,23 +33,31 @@ const EXECUTE_RESPONSE = [
   'Global variables (e.g. root) carry over to subsequent calls!',
   '',
   '## Print output',
-  'hermes-node ["frame0","Frame",0]  ',
-  'hermes-node ["RtPii","www.pen.dev",1]',
+  'hermes-node ["frame0","Frame",0,"frame"]  ',
+  'hermes-node ["RtPii","www.pen.dev",1,"frame"]',
+  'hermes-node ["img01","hero.png",0,"image"]',
   ''
 ].join('\n')
 
-test('the probe lines come back as nodes, the starter frame reading as empty', () => {
-  assert.deepEqual(parseTopLevelNodes(EXECUTE_RESPONSE), [
-    { empty: true, id: 'frame0', name: 'Frame' },
-    { empty: false, id: 'RtPii', name: 'www.pen.dev' }
-  ])
+const STARTER = { empty: true, id: 'frame0', name: 'Frame' }
+const PAGE = { empty: false, id: 'RtPii', name: 'www.pen.dev' }
+const IMAGE = { empty: false, id: 'img01', name: 'hero.png' }
+
+test('the probe lines come back as nodes; only a childless frame reads as a starter', () => {
+  assert.deepEqual(parseTopLevelNodes(EXECUTE_RESPONSE), [STARTER, PAGE, IMAGE])
   assert.deepEqual(parseTopLevelNodes('OK\n'), [])
 })
 
 test('an import is the top-level nodes that were not there before', () => {
-  const before = parseTopLevelNodes(EXECUTE_RESPONSE)
-  const after = [...before, { empty: false, id: 'dhydB', name: 'div' }]
+  const before = [STARTER]
+  const added = { empty: false, id: 'dhydB', name: 'div' }
 
-  assert.deepEqual(importedNodes(before, after), [{ empty: false, id: 'dhydB', name: 'div' }])
+  assert.deepEqual(importedNodes(before, [...before, added]), [added])
   assert.deepEqual(importedNodes(before, before), [])
+})
+
+test('a starter frame that appears between the snapshots is not an import', () => {
+  // Engine still booting when `before` was taken: nothing there yet.
+  assert.deepEqual(importedNodes([], [STARTER, IMAGE]), [IMAGE])
+  assert.deepEqual(starterFrames([STARTER, PAGE, IMAGE]), [STARTER])
 })

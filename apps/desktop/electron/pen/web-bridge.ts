@@ -18,14 +18,16 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { liveDocument, penDocumentFilePath } from './documents'
-import { isPenWebUrl, penEmbedDropped, restorePenEmbedUrl } from './embed-url'
+import { isPenWebUrl } from './embed-url'
 import { isPenSchemaAction } from './mcp'
 import type { PenDocument } from './state'
 import { documents, events, log } from './state'
-import { importedNodes, parseTopLevelNodes, type PenCanvasNode, topLevelNodesProbe } from './web-import-select'
+import { importedNodes, parseTopLevelNodes, type PenCanvasNode, starterFrames, topLevelNodesProbe } from './web-import-select'
 
-const CONNECT_RETRY_MS = 500
+const CONNECT_RETRY_MS = 1_500
 const REQUEST_TIMEOUT_MS = 120_000
+/** The editor gives a large page import ten minutes; a shorter wait here would call it failed while it is still working. */
+const IMPORT_TIMEOUT_MS = 600_000
 const READY_WAIT_MS = 30_000
 const STARTER_WAIT_MS = 3_000
 const SCHEMA_RETRY_MS = 400
@@ -143,56 +145,46 @@ async function handleStorageRequest(doc: PenDocument, method: string, payload: a
   }
 }
 
-/** Bind once the guest origin matches; bounce if Pencil strips `?embed`. */
-export function attachPenWebGuest(
-  guestContents: any,
-  theme: 'dark' | 'light',
-  editorUrl: string
-): void {
+/**
+ * Bind once the guest origin matches. The editor's own reloads (it reloads
+ * itself when a `pen:connect` reaches a page with a document already loaded)
+ * are picked up by the port-close reconnect in `bindPenWebGuest`, so a guest
+ * that already carries the bridge is left alone here.
+ */
+export function attachPenWebGuest(guestContents: any, theme: 'dark' | 'light', editorUrl: string): void {
   if (guestContents.__hermesPenWatch) {
     return
   }
 
   guestContents.__hermesPenWatch = true
 
-  let lastBoundUrl = ''
-
   const onNav = () => {
     if (guestContents.isDestroyed?.()) {
       return
     }
 
-    const url = guestContents.getURL?.() || ''
-
-    if (penEmbedDropped(url, editorUrl)) {
-      const restored = restorePenEmbedUrl(url, editorUrl)
-
-      if (restored !== url) {
-        try {
-          guestContents.loadURL(restored)
-        } catch {
-          log.warn(`could not restore pen embed URL from ${url}`)
-        }
-      }
-
+    if (!isPenWebUrl(guestContents.getURL?.() || '', editorUrl) || bridge?.guest === guestContents) {
       return
     }
 
-    if (!isPenWebUrl(url, editorUrl) || url === lastBoundUrl) {
-      return
-    }
-
-    lastBoundUrl = url
     bindPenWebGuest(guestContents, theme)
   }
 
   guestContents.on?.('did-navigate', onNav)
-  guestContents.on?.('did-navigate-in-page', onNav)
   guestContents.on?.('did-finish-load', onNav)
   onNav()
 }
 
-/** Wire a freshly-attached web-editor guest: retry `pen:connect` until ready. */
+/**
+ * Wire a web-editor guest to the live document. `pen:connect` is posted again
+ * only while the page has said nothing back — a connect that reaches a page
+ * with its document loaded makes the editor reload, so the retry is spaced
+ * wider than the page takes to answer, and the first port the page speaks on
+ * becomes the bridge's. When the page side of that port goes away (the editor
+ * reloads on a document switch) the connect starts over for the new page.
+ * Theme rides along at connect time only; the editor has no live theme
+ * message, and a re-connect for a theme would reload it.
+ */
 export function bindPenWebGuest(guestContents: any, theme: 'dark' | 'light' = 'dark'): void {
   const doc = activeDoc()
 
@@ -206,54 +198,64 @@ export function bindPenWebGuest(guestContents: any, theme: 'dark' | 'light' = 'd
 
   const { MessageChannelMain } = require('electron')
 
+  const own: WebBridge = (bridge = {
+    docId: doc.docId,
+    guest: guestContents,
+    port: null,
+    ready: false,
+    connectTimer: null,
+    pending: new Map(),
+    counter: 0,
+    theme
+  })
+
+  const current = () => bridge === own && !guestContents.isDestroyed?.()
+
+  const stopConnecting = () => {
+    if (own.connectTimer) {
+      clearInterval(own.connectTimer)
+      own.connectTimer = null
+    }
+  }
+
   const attempt = () => {
-    if (guestContents.isDestroyed?.()) {
-      shutdownPenWebBridge()
+    if (!current()) {
+      stopConnecting()
 
       return
     }
 
-    bridge?.port?.close()
-
     const { port1, port2 } = new MessageChannelMain()
 
-    bridge = {
-      docId: doc.docId,
-      guest: guestContents,
-      port: port1,
-      ready: false,
-      connectTimer: bridge?.connectTimer ?? null,
-      pending: new Map(),
-      counter: 0,
-      theme
-    }
-
     port1.on('message', (event: any) => {
+      if (!current()) {
+        return
+      }
+
+      // First word from the page: this connect landed, the others never will.
+      if (own.port !== port1) {
+        own.port?.close()
+        own.port = port1
+        stopConnecting()
+      }
+
       const message = event.data
 
       if (message?.kind === 'ready') {
-        if (bridge?.connectTimer) {
-          clearInterval(bridge.connectTimer)
-          bridge.connectTimer = null
-        }
-
-        if (bridge) {
-          bridge.ready = true
-        }
-
+        own.ready = true
         log.info(`pen canvas connected (${path.basename(penDocumentFilePath(doc) || doc.docId)})`)
 
         return
       }
 
       if (message?.kind === 'response') {
-        const entry = bridge?.pending.get(String(message.id))
+        const entry = own.pending.get(String(message.id))
 
         if (!entry) {
           return
         }
 
-        bridge?.pending.delete(String(message.id))
+        own.pending.delete(String(message.id))
         clearTimeout(entry.timer)
 
         if (message.error) {
@@ -277,29 +279,58 @@ export function bindPenWebGuest(guestContents: any, theme: 'dark' | 'light' = 'd
         )
       }
     })
+
+    // The page went away under the live port (editor reload). Anything in
+    // flight is lost; the reloaded page answers a fresh connect.
+    port1.on('close', () => {
+      if (!current() || own.port !== port1) {
+        return
+      }
+
+      own.port = null
+      own.ready = false
+      rejectPending('the pen editor reloaded')
+      log.info('pen canvas port closed — reconnecting')
+      startConnecting()
+    })
+
     port1.start()
 
     guestContents.postMessage('pen-connect', { theme, fileURI: doc.fileURI }, [port2])
   }
 
-  attempt()
-  const timer = setInterval(attempt, CONNECT_RETRY_MS)
-
-  if (bridge) {
-    bridge.connectTimer = timer
+  const startConnecting = () => {
+    stopConnecting()
+    attempt()
+    own.connectTimer = setInterval(attempt, CONNECT_RETRY_MS)
   }
 
+  startConnecting()
   guestContents.once?.('destroyed', () => shutdownPenWebBridge())
 }
 
-export function rebindPenWebGuest(theme: 'dark' | 'light'): void {
-  const guest = bridge?.guest
-
-  if (!guest || guest.isDestroyed?.()) {
+/** Re-run the connect for the live document on the bound guest (document switch). */
+export function rebindPenWebGuest(): void {
+  if (!bridge || bridge.guest.isDestroyed?.()) {
     return
   }
 
+  const { guest, theme } = bridge
+
   bindPenWebGuest(guest, theme)
+}
+
+function rejectPending(reason: string): void {
+  if (!bridge) {
+    return
+  }
+
+  for (const { reject, timer } of bridge.pending.values()) {
+    clearTimeout(timer)
+    reject(new Error(reason))
+  }
+
+  bridge.pending.clear()
 }
 
 function sleep(ms: number): Promise<void> {
@@ -318,7 +349,7 @@ async function waitForPenReady(timeoutMs = READY_WAIT_MS): Promise<void> {
   }
 }
 
-function bridgeRequest(method: string, payload?: unknown): Promise<unknown> {
+function bridgeRequest(method: string, payload?: unknown, timeoutMs = REQUEST_TIMEOUT_MS): Promise<unknown> {
   if (!bridge || !bridge.ready) {
     return Promise.reject(new Error('the pen canvas is not connected yet'))
   }
@@ -330,7 +361,7 @@ function bridgeRequest(method: string, payload?: unknown): Promise<unknown> {
     const timer = setTimeout(() => {
       bridge?.pending.delete(id)
       reject(new Error(`pen request '${method}' timed out`))
-    }, REQUEST_TIMEOUT_MS)
+    }, timeoutMs)
 
     bridge!.pending.set(id, { resolve, reject, timer })
     port.postMessage({ kind: 'request', id, method, payload })
@@ -405,26 +436,10 @@ async function topLevelNodes(): Promise<PenCanvasNode[]> {
   return parseTopLevelNodes(text)
 }
 
-/** Figma-style zoom to fit; the editor has no viewport request, so the shortcut is the door. */
-function zoomPenToFit(): void {
-  const guest = bridge?.guest
-
-  if (!guest || guest.isDestroyed?.()) {
-    return
-  }
-
-  guest.focus()
-
-  for (const type of ['keyDown', 'char', 'keyUp'] as const) {
-    guest.sendInputEvent({ type, keyCode: type === 'char' ? '!' : '1', modifiers: ['shift'] })
-  }
-}
-
 /**
  * Drop a `PenCapturer.capture()` payload onto the canvas — pen.dev's
- * paste-from-the-web — and land the viewport on it. With `fresh` (a canvas
- * opened for this import) the editor's empty starter frame goes too, so
- * zoom-to-fit frames the import alone.
+ * paste-from-the-web. The editor frames the inserted node itself. With `fresh`
+ * (a canvas opened for this import) the editor's empty starter frame goes too.
  */
 export async function importPenBrowserCapture(
   payload: string,
@@ -433,7 +448,7 @@ export async function importPenBrowserCapture(
   await waitForPenReady()
 
   // A just-opened document adds its starter frame a beat after the bridge is
-  // ready; snapshot too early and the frame reads as part of the import.
+  // ready; giving it a moment keeps the diff below honest on a slow boot.
   let before = await topLevelNodes()
 
   for (let waited = 0; fresh && before.length === 0 && waited < STARTER_WAIT_MS; waited += 100) {
@@ -441,22 +456,20 @@ export async function importPenBrowserCapture(
     before = await topLevelNodes()
   }
 
-  const result = (await bridgeRequest('browser-import', payload)) as { success?: boolean } | undefined
+  const result = (await bridgeRequest('browser-import', payload, IMPORT_TIMEOUT_MS)) as { success?: boolean } | undefined
 
   if (result?.success !== true) {
     return { success: false, nodes: [] }
   }
 
-  const nodes = importedNodes(before, await topLevelNodes())
-  const starters = fresh ? before.filter(node => node.empty) : []
+  const after = await topLevelNodes()
+  const starters = fresh ? starterFrames(after) : []
 
   if (starters.length) {
     await runPenTool('execute', { input: starters.map(node => `Delete(${JSON.stringify(node.id)})`).join('\n') })
   }
 
-  zoomPenToFit()
-
-  return { success: true, nodes }
+  return { success: true, nodes: importedNodes(before, after) }
 }
 
 export function shutdownPenWebBridge(): void {
@@ -468,10 +481,7 @@ export function shutdownPenWebBridge(): void {
     clearInterval(bridge.connectTimer)
   }
 
-  for (const { reject, timer } of bridge.pending.values()) {
-    clearTimeout(timer)
-    reject(new Error('the pen web canvas connection was closed'))
-  }
+  rejectPending('the pen web canvas connection was closed')
 
   try {
     bridge.port?.close()

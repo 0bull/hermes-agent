@@ -358,7 +358,7 @@ import { wireOauthSessionResponse } from './oauth-session-response'
 import { listWindowsProcesses, reapPackageRootedProcesses } from './package-process-reap'
 import { createParentStartMarkerResolver, parentWatchdogEnv } from './parent-process-identity'
 import { bundledPayload, installIdForRoot, type PayloadInfo } from './payload-backend'
-import { shutdownPenHost, syncPenWebTheme, wirePenCanvas } from './pen'
+import { shutdownPenHost, wirePenCanvas } from './pen'
 import { petOverlayClickThrough } from './pet-overlay'
 import { placePetOverlay, registerPetOverlayIpc } from './pet-overlay-ipc'
 import {
@@ -17396,8 +17396,6 @@ ipcMain.on('hermes:native-theme', (_event, mode) => {
     nativeTheme.themeSource = mode
     writePersistedThemeSource(mode)
   }
-
-  syncPenWebTheme()
 })
 
 // See-through window translucency. Persist + re-apply to every open window at

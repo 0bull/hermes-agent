@@ -16,7 +16,6 @@ import {
   liveDocument,
   penDocumentFilePath
 } from './documents'
-import { isPenWebUrl } from './embed-url'
 import { deletePenCanvas, openPenCanvas, penCanvasUrl, penLibrary, penStatus, renamePenCanvas } from './library'
 import {
   forgetPenSession,
@@ -41,9 +40,7 @@ export function penWebTheme(): 'dark' | 'light' {
   return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 }
 
-export function syncPenWebTheme(): void {
-  rebindPenWebGuest(penWebTheme())
-}
+const PEN_WEBVIEW_PARTITION = 'persist:hermes-pen'
 
 function broadcastPenEvent(event: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -53,17 +50,25 @@ function broadcastPenEvent(event: string, payload: unknown): void {
   }
 }
 
+/**
+ * The web editor's guest, keyed on its own partition (the renderer sets it in
+ * `src/app/chat/pen-webview.ts`) so a pen.dev page in the preview pane is not
+ * mistaken for the canvas. The preload only relays a MessagePort over
+ * `ipcRenderer`, which the sandbox allows; tool calls keep running while the
+ * pane is hidden because the guest is never throttled as background content.
+ */
 function wirePenWebviewGuests(opts: { preloadPath: string }): void {
   app.on('web-contents-created', (_event, contents) => {
     contents.on('will-attach-webview', (_e, webPreferences, params) => {
-      if (!isPenWebUrl(String(params.src || ''), penWebEditorUrl())) {
+      if (params.partition !== PEN_WEBVIEW_PARTITION) {
         return
       }
 
       webPreferences.preload = opts.preloadPath
       webPreferences.contextIsolation = true
       webPreferences.nodeIntegration = false
-      webPreferences.sandbox = false
+      webPreferences.sandbox = true
+      webPreferences.backgroundThrottling = false
     })
 
     contents.on('did-attach-webview', (_e, guest) => {
@@ -109,7 +114,7 @@ function wirePenIpc(): void {
     })
 
     if (rebind) {
-      rebindPenWebGuest(penWebTheme())
+      rebindPenWebGuest()
     }
 
     return { doc, url: penCanvasUrl() }

@@ -13,6 +13,10 @@ export function ensurePenWebview(url: string): HTMLElement {
 
   const node = document.createElement('webview')
 
+  // Matched by `will-attach-webview` in electron/pen/wire.ts — the partition
+  // is what marks this guest as the canvas (not its URL).
+  node.setAttribute('partition', 'persist:hermes-pen')
+
   node.setAttribute('src', url)
   node.setAttribute('style', HIDDEN)
   document.body.append(node)

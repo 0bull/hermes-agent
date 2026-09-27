@@ -37,15 +37,15 @@ export function ancestorSelector(selector: string, steps: number): string | unde
 export interface PenCanvasNode {
   id: string
   name: string
-  /** No children — the editor's starter frame, or a frame the user has not filled yet. */
+  /** A childless frame — the editor's starter frame, never something an import produces. */
   empty: boolean
 }
 
 /** Marker the top-level probe prints one node per line under; see `topLevelNodesProbe`. */
 export const NODE_LINE = 'hermes-node'
 
-/** `execute` input listing every top-level node as `hermes-node ["id","name",childCount]`. */
-export const topLevelNodesProbe = `Get((n, c) => { if (c.depth === 0) Print(${JSON.stringify(NODE_LINE)}, JSON.stringify([n.id, n.name || '', n.children ? n.children.length : 0])); c.skipChildren() })`
+/** `execute` input listing every top-level node as `hermes-node ["id","name",childCount,"type"]`. */
+export const topLevelNodesProbe = `Get((n, c) => { if (c.depth === 0) Print(${JSON.stringify(NODE_LINE)}, JSON.stringify([n.id, n.name || '', n.children ? n.children.length : 0, n.type || ''])); c.skipChildren() })`
 
 /** The probe's lines out of an `execute` response; anything else in the text is ignored. */
 export function parseTopLevelNodes(text: string): PenCanvasNode[] {
@@ -53,15 +53,24 @@ export function parseTopLevelNodes(text: string): PenCanvasNode[] {
     .split('\n')
     .filter(line => line.startsWith(`${NODE_LINE} `))
     .map(line => {
-      const [id, name, children] = JSON.parse(line.slice(NODE_LINE.length + 1)) as [string, string, number]
+      const [id, name, children, type] = JSON.parse(line.slice(NODE_LINE.length + 1)) as [string, string, number, string?]
 
-      return { empty: children === 0, id, name }
+      return { empty: children === 0 && type === 'frame', id, name }
     })
 }
 
-/** What an import added: the top-level nodes that were not there before it. */
+/**
+ * What an import added: the top-level nodes that were not there before it.
+ * A starter frame that landed between the two snapshots (engine still booting
+ * when `before` was taken) is not an import and is left out.
+ */
 export function importedNodes(before: PenCanvasNode[], after: PenCanvasNode[]): PenCanvasNode[] {
   const known = new Set(before.map(node => node.id))
 
-  return after.filter(node => !known.has(node.id))
+  return after.filter(node => !known.has(node.id) && !node.empty)
+}
+
+/** On a canvas opened for this import, every starter frame present after it makes way. */
+export function starterFrames(after: PenCanvasNode[]): PenCanvasNode[] {
+  return after.filter(node => node.empty)
 }

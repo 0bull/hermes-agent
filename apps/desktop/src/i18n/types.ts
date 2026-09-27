@@ -1045,7 +1045,6 @@ export interface Translations {
         noMatch: (query: string) => string
         installedTag: string
         generatedTag: string
-        countCapped: (cap: number, total: number) => string
         count: (n: number) => string
         uninstall: (name: string) => string
         delete: (name: string) => string

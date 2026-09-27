@@ -18111,7 +18111,7 @@
       },
       "ModelCapabilities": {
         "additionalProperties": false,
-        "description": "``hermes_cli/inventory.py::_apply_capabilities``.",
+        "description": "``hermes_cli/inventory.py::_apply_capabilities``.\n\n``supported_efforts`` is the route clamp vocabulary (#114029): pickers render the internal\nlevels it contains. Absent/None = unknown \u2192 the client keeps the full ladder.",
         "properties": {
           "fast": {
             "title": "Fast",
@@ -18132,6 +18132,21 @@
             ],
             "default": null,
             "title": "Can Disable Reasoning"
+          },
+          "supported_efforts": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Supported Efforts"
           }
         },
         "required": [
@@ -29053,6 +29068,13 @@
             "title": "Reasoning Effort Wire",
             "type": "string"
           },
+          "reasoning_supported_efforts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoning Supported Efforts",
+            "type": "array"
+          },
           "service_tier": {
             "default": "",
             "title": "Service Tier",
@@ -29907,6 +29929,13 @@
             "default": "",
             "title": "Reasoning Effort Wire",
             "type": "string"
+          },
+          "reasoning_supported_efforts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoning Supported Efforts",
+            "type": "array"
           },
           "service_tier": {
             "default": "",

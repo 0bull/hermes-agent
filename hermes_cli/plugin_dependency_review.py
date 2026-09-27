@@ -8,9 +8,15 @@ from pathlib import Path
 
 class DependencyConsentRequired(Exception):
     def __init__(self, dependencies: tuple[str, ...], token: str):
-        super().__init__('This plugin can add Python packages to the shared Hermes environment. '
-                         'Review the declared requirements before installing. '
-                         'A Python package with no listed requirements may still run its build backend.')
+        # The no-requirements caveat only reads true when the scanned list is
+        # empty; never attach it to a listed review.
+        if dependencies:
+            message = ('This plugin can add Python packages to the shared Hermes environment. '
+                       'Review the declared requirements before installing.')
+        else:
+            message = ('This plugin can add Python packages to the shared Hermes environment. '
+                       'A Python package with no listed requirements may still run its build backend.')
+        super().__init__(message)
         self.dependencies = dependencies
         self.token = token
 

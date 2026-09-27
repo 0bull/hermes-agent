@@ -75,6 +75,7 @@ export function PluginInstallModal() {
   const [forceReinstall, setForceReinstall] = useState(false)
   const [pinRef, setPinRef] = useState('')
   const [installing, setInstalling] = useState(false)
+  const [consentPending, setConsentPending] = useState(false)
   const [installError, setInstallError] = useState<string | null>(null)
   const [installUncertain, setInstallUncertain] = useState(false)
   const probeToken = useRef(0)
@@ -89,6 +90,7 @@ export function PluginInstallModal() {
     setForceReinstall(false)
     setPinRef('')
     setInstalling(false)
+    setConsentPending(false)
     setInstallError(null)
     setInstallUncertain(false)
   }, [])
@@ -239,11 +241,22 @@ export function PluginInstallModal() {
         let result = await installAgentPlugin(requestGateway, installOptions)
 
         if (result.dependencyReview) {
+          // The backend's consent payload is a token plus the scanned
+          // requirements — never show its composed error blob; this modal
+          // owns the copy (with the empty-list caveat only when it applies).
+          const dependencies = result.dependencyReview.dependencies
+          setConsentPending(true)
+
           const accepted = await confirm({
-            title: m.title,
+            codeList: dependencies.length > 0 ? { label: m.dependencyListLabel, items: dependencies } : undefined,
             confirmLabel: m.install,
-            description: [result.error, ...result.dependencyReview.dependencies].filter(Boolean).join('\n')
+            description:
+              dependencies.length > 0 ? m.dependencyConsentIntro : m.dependencyConsentEmpty,
+            overModal: true,
+            title: m.dependencyConsentTitle
           })
+
+          setConsentPending(false)
 
           if (!accepted) {
             return
@@ -371,6 +384,7 @@ export function PluginInstallModal() {
       setInstallError(errors.join('\n'))
     } finally {
       setInstalling(false)
+      setConsentPending(false)
     }
   }
 
@@ -628,7 +642,9 @@ export function PluginInstallModal() {
               disabled={busy || installUncertain || phase !== 'ready' || !probe?.ok || pinRefInvalid}
               onClick={() => void handleInstall()}
             >
-              {installing ? m.installing : m.install}
+              {/* While the dependency consent is open this footer waits on an
+                  answer, not on the install — keep the normal label. */}
+              {installing && !consentPending ? m.installing : m.install}
             </Button>
           )}
         </DialogFooter>

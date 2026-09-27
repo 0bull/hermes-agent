@@ -194,3 +194,27 @@ def test_declaration_boundaries(world, kind):
         assert not result.get('consent_required')
         assert calls
 
+
+@pytest.mark.parametrize('listed', [False, True])
+def test_consent_error_matches_the_scanned_list(world, listed):
+    source, target, home, calls = world
+    if not listed:
+        # A pyproject with no [project].dependencies is still a member: the
+        # review fires with an EMPTY scanned list.
+        (source / 'pyproject.toml').write_text('[project]\nname="consent-test"\nversion="1.0"\n')
+        subprocess.run(['git', 'add', '.'], cwd=source, check=True, capture_output=True)
+        subprocess.run(['git', '-c', 'user.name=test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'no-deps'],
+                       cwd=source, check=True, capture_output=True)
+    result = pc.dashboard_install_plugin(source.as_uri(), review_python_dependencies=True, force=True, enable=False)
+    assert result['consent_required'], result
+    assert result['python_dependencies'] == (['requests>=2,<3'] if listed else [])
+    # The no-listed-requirements caveat only reads true when the scanned list
+    # is empty; a listed review must not carry it.
+    if listed:
+        assert 'no listed requirements' not in result['error']
+        assert 'Review the declared requirements' in result['error']
+    else:
+        assert 'no listed requirements' in result['error']
+        assert 'Review the declared requirements' not in result['error']
+    assert not calls
+

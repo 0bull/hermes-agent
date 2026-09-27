@@ -109,7 +109,16 @@ describe('Install from Git entry flow', () => {
     await screen.findByText('This package includes')
     fireEvent.click(screen.getByRole('button', { name: 'Install', exact: true }))
     await waitFor(() => expect(confirm).toHaveBeenCalledOnce())
-    expect(vi.mocked(confirm).mock.calls[0][0].description).toContain('requests>=2,<3')
+    const ask = vi.mocked(confirm).mock.calls[0][0]
+
+    // Consent copy is composed from the scanned list, never the backend's
+    // composed error blob: intro + labelled requirements, no empty-list caveat.
+    expect(ask.title).toBe('Install Python packages?')
+    expect(ask.description).toBe(
+      'This plugin installs the Python packages below into the shared Hermes environment.'
+    )
+    expect(ask.description).not.toContain('build backend')
+    expect(ask.codeList).toEqual({ label: 'Python requirements', items: ['requests>=2,<3'] })
     await waitFor(() => expect(installs).toHaveLength(accepted ? 2 : 1))
     expect(installs[0]).not.toHaveProperty('dependency_consent')
     if (accepted) {
@@ -118,6 +127,70 @@ describe('Install from Git entry flow', () => {
       expect(installDesktopPlugin).not.toHaveBeenCalled()
       expect($pluginInstallRequest.get()).not.toBeNull()
     }
+  })
+
+  it('shows the empty-requirements caveat only when the scanned list is empty', async () => {
+    requestGateway.mockImplementation(async (_method, params) => {
+      if (params?.action !== 'install') return { plugins: [] }
+
+      return params.dependency_consent
+        ? { ok: true, plugin_name: 'example' }
+        : {
+            ok: false,
+            consent_required: true,
+            dependency_consent: 'candidate-empty',
+            python_dependencies: [],
+            error: 'Review Python dependencies'
+          }
+    })
+    vi.mocked(confirm).mockResolvedValue(false)
+    renderFlow()
+    act(() => openPluginInstallRequest({ repo: 'https://github.com/example/plugin' }))
+    await screen.findByText('This package includes')
+    fireEvent.click(screen.getByRole('button', { name: 'Install', exact: true }))
+    await waitFor(() => expect(confirm).toHaveBeenCalledOnce())
+
+    // Empty list: the build-backend caveat IS the copy, and there is no list.
+    const ask = vi.mocked(confirm).mock.calls[0][0]
+    expect(ask.description).toBe(
+      'This plugin lists no Python requirements, but its build backend may still install some.'
+    )
+    expect(ask.codeList).toBeUndefined()
+  })
+
+  it('keeps the footer on its normal label while the consent answer is pending', async () => {
+    // confirm() stays unresolved: the consent dialog is open, waiting.
+    let answer!: (ok: boolean) => void
+    vi.mocked(confirm).mockReturnValue(new Promise<boolean>(resolve => (answer = resolve)))
+    requestGateway.mockImplementation(async (_method, params) => {
+      if (params?.action !== 'install') return { plugins: [] }
+
+      // The consented retry never settles: the footer must stay on the busy
+      // label for as long as the install is actually in flight.
+      if (params.dependency_consent) return new Promise<never>(() => {})
+
+      return {
+        ok: false,
+        consent_required: true,
+        dependency_consent: 'candidate-A',
+        python_dependencies: ['requests>=2,<3'],
+        error: 'Review Python dependencies'
+      }
+    })
+    renderFlow()
+    act(() => openPluginInstallRequest({ repo: 'https://github.com/example/plugin' }))
+    await screen.findByText('This package includes')
+    const install = screen.getByRole('button', { name: 'Install', exact: true })
+    fireEvent.click(install)
+    await waitFor(() => expect(confirm).toHaveBeenCalledOnce())
+
+    // Pending consent: the footer still reads Install, not Installing….
+    expect(screen.getByRole('button', { name: 'Install', exact: true })).toBe(install)
+    expect(screen.queryByRole('button', { name: 'Installing…' })).toBeNull()
+
+    // Once answered, the install proceeds and the busy label returns.
+    answer(true)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Installing…' })).toBeTruthy())
   })
 
   it.each(['local', 'remote'] as const)(

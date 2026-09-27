@@ -138,9 +138,8 @@ def test_play_attention_sound_linux_only(monkeypatch):
     def _fake_popen(args, **kwargs):
         calls.append((args, kwargs))
 
-    monkeypatch.setattr(terminal_notify.sys, "platform", "linux")
     monkeypatch.setattr(terminal_notify.subprocess, "Popen", _fake_popen)
-    terminal_notify.play_attention_sound()
+    terminal_notify.play_attention_sound("linux")
     assert len(calls) == 1
     assert calls[0][0][0] == "paplay"
     assert calls[0][0][1] == terminal_notify.ATTENTION_SOUND
@@ -149,14 +148,12 @@ def test_play_attention_sound_linux_only(monkeypatch):
 
     # Non-Linux → no spawn at all.
     calls.clear()
-    monkeypatch.setattr(terminal_notify.sys, "platform", "darwin")
-    terminal_notify.play_attention_sound()
+    terminal_notify.play_attention_sound("darwin")
     assert calls == []
 
     # Spawn failure (no paplay on the box) is absorbed.
     def _boom(args, **kwargs):
         raise FileNotFoundError("paplay")
 
-    monkeypatch.setattr(terminal_notify.sys, "platform", "linux")
     monkeypatch.setattr(terminal_notify.subprocess, "Popen", _boom)
-    terminal_notify.play_attention_sound()  # must not raise
+    terminal_notify.play_attention_sound("linux")  # must not raise

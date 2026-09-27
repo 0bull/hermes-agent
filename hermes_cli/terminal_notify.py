@@ -32,9 +32,9 @@ _WARP_LAST_BROKEN = {"stable": "v0.2026.03.25.08.24.stable_05", "preview": "v0.2
 ATTENTION_SOUND = "/usr/share/sounds/freedesktop/stereo/message-new-instant.oga"
 
 
-def play_attention_sound() -> None:
+def play_attention_sound(platform: str | None = None) -> None:
     """Best-effort paplay of the system message sound. Never raises, never blocks."""
-    if not sys.platform.startswith("linux"):
+    if not (platform or sys.platform).startswith("linux"):
         return
     try:
         subprocess.Popen(

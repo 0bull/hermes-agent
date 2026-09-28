@@ -460,3 +460,13 @@ gateway:
     session_db_unavailable_prefix: "Base de datos de sesiones no disponible"
     session_not_found:           "Sesión no encontrada en la base de datos."
     warn_passthrough:            "⚠️ {error}"
+
+# Adaptadores de plataforma (plugins/platforms/*). Solo las claves cuyo texto original ya era
+# español se traducen aquí esta noche; el resto del espacio platform.* llega en la ola 3.
+platform:
+  google_chat:
+    attachment_fallback:
+      header:              "⚠️ No he podido adjuntar **{filename}**."
+      explain:             "Google Chat sólo permite adjuntar archivos cuando el bot tiene permiso explícito tuyo (OAuth de usuario). Es un consentimiento único que se hace desde este chat."
+      activate:            "**Para activarlo:** envía `/setup-files` y sigue las instrucciones."
+      host_path:           "Mientras tanto el archivo está en el host: `{path}`"

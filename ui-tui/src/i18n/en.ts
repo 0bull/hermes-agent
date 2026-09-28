@@ -14,14 +14,26 @@ import { chromeEn } from './en/chrome.js'
 import { libEn } from './en/lib.js'
 import { overlaysEn } from './en/overlays.js'
 import { slashEn } from './en/slash.js'
+import { slashCmdEn } from './en/slashCmd.js'
+import { userMessagesEn } from './en/userMessages.js'
 
 export const en = {
   ...chromeEn,
   ...overlaysEn,
   ...appEn,
   ...slashEn,
+  ...slashCmdEn,
+  ...userMessagesEn,
   ...libEn
 }
 
 /** The sibling catalogs `en` is composed from, for the disjointness test. */
-export const EN_SIBLINGS: readonly Record<string, unknown>[] = [chromeEn, overlaysEn, appEn, slashEn, libEn]
+export const EN_SIBLINGS: readonly Record<string, unknown>[] = [
+  chromeEn,
+  overlaysEn,
+  appEn,
+  slashEn,
+  slashCmdEn,
+  userMessagesEn,
+  libEn
+]

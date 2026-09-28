@@ -2449,6 +2449,7 @@ export const ja = defineLocale({
       collapseAll: 'すべて折りたたむ',
       inboxStyle: '受信トレイスタイル',
       updated: '更新',
+      active: 'アクティブ',
       created: '作成',
       tokens: 'トークン',
       cost: 'コスト',

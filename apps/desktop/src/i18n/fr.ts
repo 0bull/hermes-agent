@@ -3914,6 +3914,7 @@ export const frOverrides = {
       collapseAll: 'Tout replier',
       inboxStyle: 'Style boîte de réception',
       updated: 'Mise à jour',
+      active: 'Actives',
       created: 'Création',
       tokens: 'Jetons',
       cost: 'Coût',

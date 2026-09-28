@@ -2072,6 +2072,7 @@ export const ar = defineLocale({
       collapseAll: 'طي الكل',
       inboxStyle: 'نمط البريد الوارد',
       updated: 'محدّث',
+      active: 'نشطة',
       created: 'أُنشئ',
       tokens: 'الرموز',
       cost: 'التكلفة',

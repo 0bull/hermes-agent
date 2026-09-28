@@ -3894,6 +3894,7 @@ export const esOverrides = {
       collapseAll: 'Contraer todo',
       inboxStyle: 'Estilo bandeja de entrada',
       updated: 'Actualizado',
+      active: 'Activas',
       created: 'Creado',
       tokens: 'Tokens',
       cost: 'Coste',

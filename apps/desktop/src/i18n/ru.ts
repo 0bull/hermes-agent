@@ -2640,6 +2640,7 @@ export const ru = defineLocale({
       expandAll: 'Развернуть все',
       collapseAll: 'Свернуть все',
       updated: 'Обновление',
+      active: 'Активные',
       created: 'Создано',
       tokens: 'Токены',
       cost: 'Стоимость',

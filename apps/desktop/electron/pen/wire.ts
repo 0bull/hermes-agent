@@ -6,7 +6,7 @@ import path from 'node:path'
 
 import { app, BrowserWindow, ipcMain, nativeTheme, shell } from 'electron'
 
-import { penWebEditorUrl } from '../pen-host'
+import { penWebEditorUrl, setPenLibraryHome } from '../pen-host'
 
 import {
   closeOtherPenDocuments,
@@ -242,7 +242,8 @@ function wirePenIpc(): void {
   )
 }
 
-export function wirePenCanvas(opts: { preloadPath: string }): void {
+export function wirePenCanvas(opts: { hermesHome: string; preloadPath: string }): void {
+  setPenLibraryHome(opts.hermesHome)
   wirePenWebviewGuests(opts)
   wirePenIpc()
   wirePenImportIpc()

@@ -16,8 +16,15 @@ export function penWebEditorUrl(): string {
   return ensurePenEmbedUrl(process.env.HERMES_PEN_WEB_URL || PEN_WEB_EDITOR_DEFAULT_URL)
 }
 
+let libraryHome: null | string = null
+
+/** Main's resolved Hermes home — its env carries no HERMES_HOME, so wiring hands it over. */
+export function setPenLibraryHome(home: string): void {
+  libraryHome = home
+}
+
 export function penLibraryRoot(): string {
-  const home = process.env.HERMES_HOME || path.join(os.homedir(), '.hermes')
+  const home = libraryHome || process.env.HERMES_HOME || path.join(os.homedir(), '.hermes')
 
   return path.join(home, 'pens')
 }

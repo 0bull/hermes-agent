@@ -18927,7 +18927,7 @@ app.whenReady().then(() => {
   installMediaPermissions()
   installDownloadHandling()
   registerMediaProtocol()
-  wirePenCanvas({ preloadPath: path.join(APP_ROOT, 'dist', 'pen-web-preload.cjs') })
+  wirePenCanvas({ hermesHome: HERMES_HOME, preloadPath: path.join(APP_ROOT, 'dist', 'pen-web-preload.cjs') })
   installEmbedReferer()
   installRemoteHeaderRules()
 

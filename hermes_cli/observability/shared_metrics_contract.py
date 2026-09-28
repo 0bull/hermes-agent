@@ -34,6 +34,8 @@ MODEL_SWITCH_MARK = "hermes.model_switch"
 FALLBACK_MARK = "hermes.fallback"
 SLASH_COMMAND_MARK = "hermes.slash_command"
 EXTENSION_INSTALL_MARK = "hermes.extension.install"
+# ---- v4 install ----
+STARTUP_LATENCY_MARK = "hermes.startup.latency"
 SUBSCRIBER_NAME = "hermes.nemo_relay.shared_metrics"
 CLIENT_ACTIVE_METRIC = "hermes.client.active"
 LEGACY_MODEL_CALL_METRIC = "hermes.model_call.count"
@@ -55,6 +57,8 @@ MODEL_SWITCH_METRIC = "hermes.model_switch.count"
 FALLBACK_METRIC = "hermes.fallback.count"
 SLASH_COMMAND_METRIC = "hermes.slash_command.count"
 EXTENSION_INSTALL_METRIC = "hermes.extension.install.count"
+# ---- v4 install ----
+STARTUP_LATENCY_METRIC = "hermes.startup.latency"
 MODEL_IDENTIFIER_MAX_LENGTH = 256
 PROVIDER_IDENTIFIER_MAX_LENGTH = 64
 _METRIC_IDENTIFIER_CHARACTERS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789._:/@+-")
@@ -183,6 +187,24 @@ EXTENSION_NAMES = _CatalogValues(
 )
 DISPLAY_LANGUAGES = _CatalogValues("display_languages", extra=frozenset({"other"}))
 
+# ---- v4 install ----
+STARTUP_SURFACES = frozenset({"cli", "desktop_attach", "gateway_boot", "serve_boot", "tui"})
+STARTUP_LATENCY_BUCKETS = frozenset({
+    "lt_500ms", "500ms_to_1s", "1s_to_2s", "2s_to_5s", "5s_to_10s", "gte_10s",
+})
+RELEASE_CHANNELS = frozenset({"dev", "main", "stable", "unknown"})
+VERSION_AGE_BUCKETS = frozenset({"lt_7d", "7d_to_30d", "30d_to_90d", "gte_90d", "unknown"})
+BEHIND_BUCKETS = COUNT_BUCKETS | {"unknown"}
+RAM_BUCKETS = frozenset({
+    "lt_8g", "8g_to_16g", "16g_to_32g", "32g_to_64g", "64g_to_128g", "gte_128g", "unknown",
+})
+GPU_CLASSES = frozenset({"amd", "apple_silicon", "intel", "none", "nvidia", "unknown"})
+YES_NO = frozenset({"no", "yes"})
+_INSTALL_V4_SNAPSHOT_DIMENSIONS = {
+    "behind_bucket": BEHIND_BUCKETS, "gpu_class": GPU_CLASSES, "local_model_provider_used": YES_NO,
+    "ram_bucket": RAM_BUCKETS, "release_channel": RELEASE_CHANNELS, "version_age_bucket": VERSION_AGE_BUCKETS,
+}
+
 _ARCHITECTURE_ALIASES = {
     "amd64": "x86_64", "x64": "x86_64", "x86_64": "x86_64",
     "aarch64": "arm64", "arm64": "arm64",
@@ -302,6 +324,7 @@ _COUNTER_DIMENSION_VALUES: dict[str, dict[str, frozenset[str]]] = {
         "memory_provider": MEMORY_PROVIDERS, "messaging_platform_count_bucket": SIZE_BUCKETS,
         "plugin_count_bucket": SIZE_BUCKETS, "profile_count_bucket": SIZE_BUCKETS,
         "skill_count_bucket": SIZE_BUCKETS, "terminal_backend": TERMINAL_BACKENDS,
+        **_INSTALL_V4_SNAPSHOT_DIMENSIONS,
     },
     SESSION_METRIC: {
         "active_duration_bucket": SESSION_DURATION_BUCKETS, "entrypoint": TASK_ENTRYPOINTS,
@@ -322,6 +345,8 @@ _COUNTER_DIMENSION_VALUES: dict[str, dict[str, frozenset[str]]] = {
         "kind": EXTENSION_KINDS, "name": EXTENSION_NAMES, "outcome": EXTENSION_OUTCOMES,
         "source": EXTENSION_SOURCES,
     },
+    # ---- v4 install ----
+    STARTUP_LATENCY_METRIC: {"latency_bucket": STARTUP_LATENCY_BUCKETS, "surface": STARTUP_SURFACES},
 }
 _MODEL_ROUTE_MAX_LENGTHS = {
     "model": MODEL_IDENTIFIER_MAX_LENGTH, "provider": PROVIDER_IDENTIFIER_MAX_LENGTH,
@@ -350,8 +375,11 @@ _LEGACY_METRIC_FIELDS: dict[str, tuple[frozenset[str], ...]] = {
     SKILL_LOAD_METRIC: (_METRIC_FIELDS[SKILL_LOAD_METRIC] - {"skill_name"},),
     INSTALL_SNAPSHOT_METRIC: (_METRIC_FIELDS[INSTALL_SNAPSHOT_METRIC] - {
         "display_language", "install_age_bucket", "main_provider", "messaging_platform_count_bucket",
-        "terminal_backend",
-    },),
+        "terminal_backend", *_INSTALL_V4_SNAPSHOT_DIMENSIONS,
+    },
+        # ---- v4 install ----
+        _METRIC_FIELDS[INSTALL_SNAPSHOT_METRIC] - set(_INSTALL_V4_SNAPSHOT_DIMENSIONS),
+    ),
 }
 COUNTER_METRICS = frozenset(_METRIC_FIELDS) - {LEGACY_MODEL_CALL_METRIC}
 # Counters whose value is a summed quantity rather than an event count.
@@ -365,6 +393,8 @@ _DECISION_MARK_METRICS = {
     COMPRESSION_MARK: COMPRESSION_METRIC, MODEL_SWITCH_MARK: MODEL_SWITCH_METRIC,
     FALLBACK_MARK: FALLBACK_METRIC, SLASH_COMMAND_MARK: SLASH_COMMAND_METRIC,
     EXTENSION_INSTALL_MARK: EXTENSION_INSTALL_METRIC,
+    # ---- v4 install ----
+    STARTUP_LATENCY_MARK: STARTUP_LATENCY_METRIC,
 }
 
 

@@ -1661,6 +1661,28 @@ export interface BrowserControllerParams {
 export interface BrowserControllerDetachResult {
   detached?: boolean
 }
+export interface I18nLanguagesResult {
+  languages: LanguageOption[]
+}
+/** ``agent.i18n_languages.language_options`` row. ``source`` is ``bundled``, ``overlay`` or ``plugin:<name>`` — the highest layer that supplies the language. */
+export interface LanguageOption {
+  id: string
+  endonym: string
+  rtl: boolean
+  source: string
+}
+export interface I18nCatalogParams {
+  profile?: string | null
+  lang: string
+  surface?: LocaleSurface
+}
+export type LocaleSurface = 'core' | 'tui' | 'desktop'
+/** ``messages`` is ONLY the pack + user-overlay layer for that surface (flat dotted keys); the client merges it over its bundled ``en``/``<lang>``. ``lang`` is the canonical id the request resolved to (``pt-BR`` → ``pt-br``; an unknown id resolves to ``en`` with an empty layer). */
+export interface I18nCatalogResult {
+  lang: string
+  surface: LocaleSurface
+  messages: Record<string, string>
+}
 export type PingParams = Record<string, never>
 export interface PingResult {
   pong: boolean
@@ -4854,6 +4876,10 @@ export interface RpcMethods {
   'handoff.request': { params: HandoffRequestParams; result: HandoffRequestResult }
   /** Poll the handoff row for this session. */
   'handoff.state': { params: SessionParams; result: HandoffStateResult }
+  /** Pack + overlay messages for one language and surface; the renderer merges them over its bundled catalog. */
+  'i18n.catalog': { params: I18nCatalogParams; result: I18nCatalogResult }
+  /** Every language some layer supplies (bundled ∪ user overlay ∪ plugin packs), en first. */
+  'i18n.languages': { params: ProfileParams; result: I18nLanguagesResult }
   /** Queue a gateway-visible image file for the next turn. */
   'image.attach': { params: ImageAttachParams; result: AttachedImageResult }
   /** Queue an image uploaded as base64 (remote client); reply mirrors image.attach. */
@@ -5254,6 +5280,8 @@ export const RPC_METHODS = [
   'handoff.fail',
   'handoff.request',
   'handoff.state',
+  'i18n.catalog',
+  'i18n.languages',
   'image.attach',
   'image.attach_bytes',
   'image.detach',

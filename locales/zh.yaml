@@ -463,3 +463,14 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "会话数据库不可用"
     session_not_found:           "数据库中未找到该会话。"
     warn_passthrough:            "⚠️ {error}"
+
+# 平台适配器（plugins/platforms/*）。今晚仅翻译原文本就是中文的键；其余 platform.* 键在第三波补齐。
+platform:
+  wecom:
+    media:
+      kind_image:          "图片"
+      kind_video:          "视频"
+      kind_voice:          "语音"
+      file_too_large:      "文件大小 {size_mb}MB 超过了企业微信允许的最大限制 20MB，无法发送。请尝试压缩文件或减小文件大小。"
+      voice_format_downgraded: "语音格式 {content_type} 不支持，企微仅支持 AMR 格式，已转为文件格式发送"
+      size_downgraded:     "{label}大小 {size_mb}MB 超过 {cap} 限制，已转为文件格式发送"

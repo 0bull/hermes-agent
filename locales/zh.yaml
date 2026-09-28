@@ -463,3 +463,10 @@ Future messages in this room will use that transcript until `/reset` or another 
     session_db_unavailable_prefix: "会话数据库不可用"
     session_not_found:           "数据库中未找到该会话。"
     warn_passthrough:            "⚠️ {error}"
+
+  clarify:
+    native_stream_placeholder: "💬 等待你的选择..."
+
+platform:
+  yuanbao:
+    slow_response_notice: "任务有点复杂，正在努力处理中，请耐心等待..."

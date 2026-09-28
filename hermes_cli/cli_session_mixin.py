@@ -261,12 +261,12 @@ class CLISessionMixin:
         rc = getattr(agent, "reasoning_config", None) or getattr(self, "reasoning_config", None)
         if isinstance(rc, dict):
             if rc.get("enabled") is False:
-                reasoning_label = t("cli.shared.label_disabled")
+                reasoning_label = t("cli.shared.label_off")
             elif rc.get("effort"):
                 reasoning_label = str(rc.get("effort"))
         show_r = getattr(self, "show_reasoning", None)
         if reasoning_label and show_r is not None:
-            state = t("cli.shared.label_enabled") if show_r else t("cli.shared.label_disabled")
+            state = t("cli.shared.label_on") if show_r else t("cli.shared.label_off")
             reasoning_label += t("cli.session.reasoning_display_suffix", state=state)
 
         approval_label = None

@@ -117,7 +117,7 @@ class CLIStatusBarMixin:
             return f" — {format_battery(reading)}" if reading.available else f" — {no_battery}"
 
         if arg in ("status", "show"):
-            state = t("cli.shared.label_enabled") if self._battery_visible else t("cli.shared.label_disabled")
+            state = t("cli.shared.label_on") if self._battery_visible else t("cli.shared.label_off")
             detail = _detail(t("cli.status_bar.battery_none"))
             if reading is not None and reading.available:
                 detail = t("cli.status_bar.battery_currently", reading=format_battery(reading))

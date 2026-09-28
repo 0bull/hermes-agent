@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { graftRefreshedTailOntoBackfill } from '@/app/chat/transcript-backfill'
+import { preserveLocalPendingTurnMessages } from '@/app/session/hooks/use-session-actions/utils'
 import { type ChatMessage, chatMessageText, toChatMessages } from '@/lib/chat-messages'
 import type { SessionMessage } from '@/types/hermes'
 
@@ -60,6 +61,44 @@ describe('refresh merge over a retention-trimmed store', () => {
     const refreshed = toChatMessages(afterCompaction)
 
     expect(texts(graftRefreshedTailOntoBackfill(refreshed, retained))).toEqual([
+      'user:question 1',
+      'assistant:answer 1',
+      'user:question 2',
+      'assistant:answer 2',
+      'user:question 3',
+      'assistant:answer 3',
+      'user:question 4',
+      'assistant:answer 4',
+      'user:question 5',
+      'assistant:answer 5'
+    ])
+  })
+
+  it('lets the committed turn replace its settled live rows instead of pinning them below it (#126229)', () => {
+    const retained = toChatMessages(beforeCompaction).slice(2)
+
+    // The turn this window just streamed: an optimistic prompt and a settled
+    // stream bubble, neither carrying a stored id yet.
+    const window: ChatMessage[] = [
+      ...retained,
+      { id: 'user-1790000200000-abc', parts: [{ text: 'question 5', type: 'text' }], role: 'user' },
+      {
+        id: 'assistant-stream-1790000200500-1',
+        parts: [{ text: 'answer 5', type: 'text' }],
+        pending: false,
+        role: 'assistant'
+      }
+    ]
+
+    const refreshed = toChatMessages([
+      ...beforeCompaction,
+      stored(9, 'user', 'question 5', T0 + 200),
+      stored(10, 'assistant', 'answer 5', T0 + 201)
+    ])
+
+    const merged = preserveLocalPendingTurnMessages(graftRefreshedTailOntoBackfill(refreshed, window), window)
+
+    expect(texts(merged)).toEqual([
       'user:question 1',
       'assistant:answer 1',
       'user:question 2',

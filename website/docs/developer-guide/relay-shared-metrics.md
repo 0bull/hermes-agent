@@ -195,8 +195,10 @@ mark again, but the subscriber suppresses it until the rolling window expires.
 Each task run is a Relay `Function` scope named `hermes.task_run`, parented to
 the owning Hermes session. The start counter contains only bounded execution
 surface and entrypoint values plus, for gateway tasks, the built-in messaging
-`platform` (`telegram`, `discord`, `slack`, ...; plugin platforms report
-`plugin`, every other surface `none`). The terminal counter contains bounded
+`platform` (`telegram`, `discord`, `slack`, ...; platforms Hermes ships under
+`plugins/platforms/` by name, a `plugin-catalog/` platform by its catalog entry
+name only when the installer's own record proves a catalog install, every other
+plugin platform `plugin`, every other surface `none`). The terminal counter contains bounded
 outcome, end reason, termination status, duration, logical model-call count,
 terminal tool-call count, and provider-retry count buckets, and a
 `failure_class` for failed tasks: the provider `FailoverReason` when the turn
@@ -278,6 +280,10 @@ itself ships.
 | `hermes.fallback.count` | from/to provider, error class | How often fallback providers rescue a turn, and from what. |
 | `hermes.slash_command.count` | command, surface | Which built-in commands are used (`/retry`, `/undo`, `/new` are friction signals). Skill and plugin commands report `skill`/`plugin`. |
 | `hermes.extension.install.count` | kind, source, name, outcome | Which catalog skills, MCP servers and plugins get installed. `name` is a bundled/optional skill, `optional-mcps/` or `plugin-catalog/` entry, otherwise `custom`. |
+| `hermes.platform.health` | platform, event (`connect_ok`/`connect_failed`/`reconnect`/`disconnect`), error class (`auth`/`network`/`rate_limited`/`config`/`other`) | Which messaging platforms fail to connect or drop, and why. Classified from exception types, HTTP statuses and Hermes's own fatal codes, never error text. |
+| `hermes.platform.delivery` | platform, outcome (`sent`/`failed`), failure class (`rate_limited`/`too_long`/`auth`/`network`/`forbidden`/`other`) | How often replies fail to reach the user per platform (one count per logical reply, retries included). |
+| `hermes.gateway.reply_latency` | platform, first-response bucket (`lt_2s` … `gte_60s`) | Time from an accepted inbound message to the first visible reply text (stream first chunk or final message). |
+| `hermes.cron.run` | outcome (`success`/`failed`/`missed`/`skipped`), delivery kind (`local`/`platform`/`webhook`/`none`/`other`), duration bucket | Do scheduled jobs run, fail, get skipped by a gate or overlap, or get missed while Hermes was down. Job names, prompts, schedules and targets are never included. |
 
 Sessions are summarized when they close (finalize, reset or process exit);
 delegated child sessions are not counted separately. Milestones latch in the

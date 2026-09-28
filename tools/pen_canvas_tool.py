@@ -144,7 +144,12 @@ PEN_CANVAS_SCHEMA = {
         "(the editor's design guidelines — read them before designing anything) "
         "→ get_style (the document's palette, type and spacing — match it) → "
         "use the returned tools → edit in small steps. If no Canvas tab is "
-        "open, call open first (import opens one itself)."
+        "open, call open first (import opens one itself). Image fills "
+        "(Generate 'ai' or "
+        "'stock') need the user signed into pen and otherwise stay pending "
+        "forever: if they are still pending on your next check, say so and "
+        "ask the user to sign in with pen's Sign In button — never sleep, "
+        "wait on or re-generate them."
     ),
     "parameters": {
         "type": "object",

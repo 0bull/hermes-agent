@@ -60,7 +60,7 @@ def fake_locale(tmp_path, monkeypatch):
     real_dir = i18n._locales_dir()
     (locales / "en.yaml").write_text((real_dir / "en.yaml").read_text(encoding="utf-8"), encoding="utf-8")
     monkeypatch.setattr(i18n, "_locales_dir", lambda: locales)
-    monkeypatch.setattr(i18n, "_normalize_lang", lambda lang: str(lang).lower())
+    monkeypatch.setattr(i18n, "_normalize_lang", lambda lang, home=None: str(lang).lower())
     i18n.reset_language_cache()
 
     def activate(lang: str = "xx"):

@@ -64,7 +64,11 @@ export interface Translations {
     message: string
     copyUrl: string
     close: string
-  };
+    missing: {
+      title: string
+      message: string
+    }
+  }
   intro: {
     stock: Record<string, string[]>
     custom: (label: string) => string[]
@@ -563,6 +567,9 @@ export interface Translations {
     copyDetailFailed: string
     backendOutOfDateTitle: string
     backendOutOfDateMessage: string
+    desktopOutOfDateTitle: string
+    desktopOutOfDateMessage: string
+    updateDesktopApp: string
     installMethodUnsupportedTitle: string
     updateHermes: string
     updateReadyTitle: string
@@ -994,6 +1001,8 @@ export interface Translations {
       toursDesc: string
       composerPopoutTitle: string
       composerPopoutDesc: string
+      fileBrowserTitle: string
+      fileBrowserDesc: string
       vibeHeartsTitle: string
       vibeHeartsDesc: string
       embedsTitle: string
@@ -1505,6 +1514,8 @@ export interface Translations {
       provider: string
       model: string
       applying: string
+      mainAppliedTitle: string
+      mainAppliedMessage: (model: string) => string
       defaultsLabel: string
       reasoning: string
       reasoningOff: string
@@ -2104,11 +2115,15 @@ export interface Translations {
       emptyHint: string
       loadFailed: string
       toggleFailed: (name: string) => string
+      toolsetOn: (name: string, profile: string) => string
+      toolsetOff: (name: string, profile: string) => string
+      toolsetToggleFailed: (name: string) => string
       legacyBackend: string
       portableBadge: string
       serverStates: {
         connected: string
         app_not_running: string
+        hermes_not_connected: string
         endpoint_unavailable: string
         no_interactive_session: string
         version_too_old: string
@@ -2723,6 +2738,7 @@ export interface Translations {
     skillsLabel: string
     notSet: string
     soulDesc: string
+    soulMissing: string
     soulOptional: string
     soulPlaceholder: (mode: string) => string
     soulPlaceholderCloned: string
@@ -2841,6 +2857,8 @@ export interface Translations {
     nameLabel: string
     namePlaceholder: string
     promptLabel: string
+    scriptLabel: string
+    scriptBadge: string
     promptPlaceholder: string
     frequencyLabel: string
     deliverLabel: string
@@ -3118,6 +3136,7 @@ export interface Translations {
       backgroundRunning: string
       draftSession: string
       handoffOrigin: (platform: string) => string
+      continuationOrigin: string
       ownedByProfile: (profile: string) => string
       renamed: string
       renameFailed: string
@@ -3225,6 +3244,8 @@ export interface Translations {
     queueResumeTip: string
     queueStuckTitle: string
     queueStuckBody: string
+    queueDroppedTitle: string
+    queueDroppedBody: string
     previewUnavailable: string
     previewLabel: (label: string) => string
     couldNotPreview: (label: string) => string
@@ -3322,6 +3343,7 @@ export interface Translations {
     goalWaiting: string
     subagents: (count: number) => string
     todos: (done: number, total: number) => string
+    previousTodos: (done: number, total: number) => string
     running: string
     stop: string
     dismiss: string
@@ -3492,8 +3514,11 @@ export interface Translations {
     maybeLater: string
     moreChanges: (count: number) => string
     manualTitle: string
+    manualUnavailableTitle: string
     manualBody: string
+    manualBodyBackend: string
     manualPickedUp: string
+    manualPickedUpBackend: string
     /** GUI/backend skew (#45205): backend updated but the running desktop app
      *  package (AppImage/.deb/.rpm) was not changed and must be reinstalled. */
     guiSkewTitle: string
@@ -3703,6 +3728,7 @@ export interface Translations {
     replaceCurrent: string
     pasteApiKey: string
     localApiKeyPlaceholder: string
+    localModelNamePlaceholder: string
     couldNotSave: string
     connecting: string
     update: string
@@ -3843,6 +3869,10 @@ export interface Translations {
     addProvider: string
     addCustomModel: string
     removeCustomModel: string
+    resetToDefaults: string
+    resetConfirm: string
+    resetDescription: string
+    resetAction: string
   }
 
   shell: {
@@ -4350,6 +4380,8 @@ export interface Translations {
       preparingAudio: string
       stopReading: string
       readAloud: string
+      copyFullResponse: string
+      readAloudFullResponseHint: string
       editMessage: string
       expandMessage: string
       scrollToBottom: string
@@ -4373,6 +4405,7 @@ export interface Translations {
       openSafetySettings: string
       run: string
       command: string
+      commandDetails: string
       moreOptions: string
       allowSession: string
       alwaysAllowMenu: string
@@ -4398,6 +4431,7 @@ export interface Translations {
       lateAnswer: (question: string, choice: string) => string
       lateAnswerTip: string
       lateAnswerHint: string
+      notDelivered: string
     }
     catalogInstall: {
       preparing: string

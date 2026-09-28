@@ -4,6 +4,7 @@ import { setTerminalFontFamilyFromConfig } from '@/app/right-sidebar/terminal/te
 import { getHermesConfig, getHermesConfigDefaults } from '@/hermes'
 import { BUILTIN_PERSONALITIES, normalizePersonalityValue, personalityNamesFromConfig } from '@/lib/chat-runtime'
 import { normalize } from '@/lib/text'
+import { setDesktopNotifyIncomingMessagesFromConfig } from '@/store/desktop-notify-incoming'
 import { setDisplayTimestampsFromConfig } from '@/store/display-timestamps'
 import { setShowReasoningFromConfig } from '@/store/reasoning-disclosure'
 import {
@@ -146,6 +147,7 @@ export function useHermesConfig({ activeSessionIdRef }: HermesConfigOptions) {
         setShowReasoningFromConfig(config.display?.show_reasoning)
         setTerminalFontFamilyFromConfig(config.terminal?.font_family)
         setChatFontFamilyFromConfig(config.desktop?.font_family)
+        setDesktopNotifyIncomingMessagesFromConfig(config.desktop?.notify_incoming_messages)
 
         if (!canPublish()) {
           return

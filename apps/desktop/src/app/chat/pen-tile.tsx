@@ -1,10 +1,12 @@
 import penMark from '@/assets/pen-mark.png'
 
 import {
+  canvasPopped,
   type CanvasTab,
   canvasTileOpen,
   canvasTileVisible,
   closeCanvasTile,
+  dismissCanvasTile,
   openCanvasTile,
   registerCanvasProvider,
   revealCanvasTile
@@ -22,7 +24,10 @@ registerCanvasProvider({
   close: () => {
     destroyPenWebview()
     void window.hermesDesktop?.pen?.close()
-  }
+  },
+  // One editor guest at a time: the window that hosts the pane owns it, and
+  // main's bridge binds whichever guest attaches next.
+  popOut: destroyPenWebview
 })
 
 export function openPenCanvasTile(tab: Omit<CanvasTab, 'provider'>): void {
@@ -36,7 +41,7 @@ export function hidePenCanvasTile(): void {
 
 export function closePenCanvasTile(): void {
   destroyPenWebview()
-  closeCanvasTile(PEN_PROVIDER)
+  dismissCanvasTile(PEN_PROVIDER)
 }
 
 export function penCanvasTileOpen(): boolean {
@@ -45,6 +50,11 @@ export function penCanvasTileOpen(): boolean {
 
 export function penCanvasTileVisible(): boolean {
   return canvasTileVisible(PEN_PROVIDER)
+}
+
+/** The pane is in its own window, which hosts the guest; this side must not. */
+export function penCanvasPopped(): boolean {
+  return canvasPopped(PEN_PROVIDER)
 }
 
 export function revealPenCanvasTile(): boolean {

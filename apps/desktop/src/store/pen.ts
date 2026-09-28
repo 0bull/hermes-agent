@@ -2,12 +2,25 @@
 
 import { atom } from 'nanostores'
 
-import { closePenCanvasTile, hidePenCanvasTile, openPenCanvasTile, penCanvasTileOpen } from '@/app/chat/pen-tile'
+import {
+  closePenCanvasTile,
+  hidePenCanvasTile,
+  openPenCanvasTile,
+  penCanvasPopped,
+  penCanvasTileOpen
+} from '@/app/chat/pen-tile'
 import { ensurePenWebview } from '@/app/chat/pen-webview'
 import type { PenStatus, PenToolResult } from '@/global'
 import { translateNow } from '@/i18n'
 import { notifyError } from '@/store/notifications'
 import { $selectedStoredSessionId, $sessions } from '@/store/session'
+
+/** Keep an editor guest up here for the agent, unless the pane's own window hosts it. */
+function hostPenGuest(url: string): void {
+  if (!penCanvasPopped()) {
+    ensurePenWebview(url)
+  }
+}
 
 export async function refreshPenStatus(): Promise<PenStatus | null> {
   const pen = window.hermesDesktop?.pen
@@ -53,7 +66,7 @@ export async function openPenCanvas(
     })
 
     if (doc && url) {
-      ensurePenWebview(url)
+      hostPenGuest(url)
 
       const focused = $selectedStoredSessionId.get()
 
@@ -113,7 +126,7 @@ export async function restorePenCanvas(sessionId: string): Promise<boolean> {
   const url = restored.url
 
   if (docId && url) {
-    ensurePenWebview(url)
+    hostPenGuest(url)
     openPenCanvasTile({ docId, title: restored.doc?.displayName || 'Canvas', url })
 
     return true

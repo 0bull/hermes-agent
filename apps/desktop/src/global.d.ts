@@ -95,6 +95,20 @@ declare global {
       // `onBrowserPopoutClosed` so the caller can dock the tab again.
       openBrowserWindow: (tabId: string) => Promise<{ ok: boolean; error?: string }>
       onBrowserPopoutClosed: (callback: (tabId: string) => void) => () => void
+      // Pop a canvas provider's pane (pen, …) into its own OS window; one per
+      // provider — calling again focuses it and hands it the new tab. Closing
+      // the window fires `onCanvasPopoutClosed` so the tile can be seated again.
+      openCanvasWindow: (tab: {
+        provider: string
+        docId: string
+        title: string
+        url: string
+      }) => Promise<{ ok: boolean; error?: string }>
+      closeCanvasWindow: (provider: string) => Promise<void>
+      onCanvasPopoutClosed: (callback: (provider: string) => void) => () => void
+      onCanvasPopoutTab: (
+        callback: (tab: { provider: string; docId: string; title: string; url: string }) => void
+      ) => () => void
       // Claim a one-shot cross-window ambient cue (turn-end sound / spoken
       // reply). Resolves true for the first window to claim a key, false for
       // peers — so N open windows don't all fire the same cue.

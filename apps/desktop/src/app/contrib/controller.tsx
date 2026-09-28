@@ -95,10 +95,11 @@ import { watchSessionPins } from '@/store/session-pin-sync'
 import { $botChatScopes } from '@/store/session-states'
 import { watchUnreadWriteGuard } from '@/store/session-unread-remote'
 import { $statusbarVisible } from '@/store/statusbar-prefs'
-import { isBrowserWindow, isHudWindow } from '@/store/windows'
+import { isBrowserWindow, isCanvasWindow, isHudWindow, isPopoutWindow } from '@/store/windows'
 
 import { BrowserPopoutShell } from '../chat/browser-popout-shell'
-import { watchCanvasTiles } from '../chat/canvas-tile'
+import { CanvasPopoutShell } from '../chat/canvas-popout-shell'
+import { seatCanvasWindow, watchCanvasTiles } from '../chat/canvas-tile'
 import type { SessionDragPayload } from '../chat/composer/inline-refs'
 import { watchPreviewTiles } from '../chat/preview-tile'
 import { watchRouteTiles } from '../chat/route-tile'
@@ -529,17 +530,20 @@ hydrateContributedPanes()
 // tiles there would still run, and preview-tile watching would try to dock
 // into a tree this window never renders (and, in the HUD, paint a webview
 // into the transparent overlay).
-if (!isBrowserWindow() && !isHudWindow()) {
+if (!isPopoutWindow() && !isHudWindow()) {
   watchSessionTiles()
   startUnrestoredTileTitleBackfill()
   startTileBackendIdentityGuard()
   watchRouteTiles()
   watchPreviewTiles()
+  watchCanvasTiles()
+  watchPenSession()
+  watchPenImport()
 }
 
-watchCanvasTiles()
-watchPenSession()
-watchPenImport()
+// A `?win=canvas` window seats the one tab it was opened with and follows
+// what the docked side hands it; the chat-following logic above stays there.
+seatCanvasWindow()
 
 // Mirror sidebar pins into the backend keep-flag so the auto-archive sweep
 // never hides a pinned chat (and pre-existing pins migrate transparently).
@@ -858,6 +862,14 @@ export function ContribController() {
     return (
       <ContribWiring>
         <BrowserPopoutShell />
+      </ContribWiring>
+    )
+  }
+
+  if (isCanvasWindow()) {
+    return (
+      <ContribWiring>
+        <CanvasPopoutShell />
       </ContribWiring>
     )
   }

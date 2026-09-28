@@ -35,7 +35,7 @@ import { $botChatScopes, $sessionTiles, storedSessionIdForRuntimeId } from '@/st
 import { onSessionsChanged } from '@/store/session-sync'
 import { requestSkillInstallFromDeepLink } from '@/store/skill-deeplink-install'
 import { openUpdatesWindow, startUpdatePoller, stopUpdatePoller } from '@/store/updates'
-import { isBrowserWindow, isHudWindow, isSecondaryWindow } from '@/store/windows'
+import { isHudWindow, isPopoutWindow, isSecondaryWindow } from '@/store/windows'
 import type { SessionInfo } from '@/types/hermes'
 
 import { requestComposerFocus, requestComposerInsert } from '../../chat/composer/focus'
@@ -116,7 +116,7 @@ export function useDesktopIntegrations({
   // This ref is a one-time lifecycle latch, not a mirror of reactive atom state.
   // eslint-disable-next-line no-restricted-syntax
   useEffect(() => {
-    if (!profileReady || isHudWindow() || isBrowserWindow()) {
+    if (!profileReady || isHudWindow() || isPopoutWindow()) {
       return
     }
 
@@ -442,7 +442,7 @@ export function useDesktopIntegrations({
 
   // Another window mutated the shared session list -> re-pull the sidebar.
   useEffect(() => {
-    if (isSecondaryWindow() || isBrowserWindow()) {
+    if (isSecondaryWindow() || isPopoutWindow()) {
       return
     }
 

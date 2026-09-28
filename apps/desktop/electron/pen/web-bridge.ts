@@ -306,7 +306,14 @@ export function bindPenWebGuest(guestContents: any, theme: 'dark' | 'light' = 'd
   }
 
   startConnecting()
-  guestContents.once?.('destroyed', () => shutdownPenWebBridge())
+  guestContents.once?.('destroyed', () => {
+    // Only the guest this bridge is bound to may take it down: the docked
+    // guest dies late when the pane moves to its own window, after the new
+    // guest has already bound.
+    if (bridge === own) {
+      shutdownPenWebBridge()
+    }
+  })
 }
 
 /** Re-run the connect for the live document on the bound guest (document switch). */

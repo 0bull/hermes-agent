@@ -79,7 +79,7 @@ import {
 } from './session-request-router'
 import { ackStoredSessionId, markSessionUnreadFinished } from './session-unread'
 import { migrateTranscriptTailsForProfile } from './transcript-tail-cache'
-import { isBrowserWindow, isSecondaryWindow } from './windows'
+import { isPopoutWindow, isSecondaryWindow } from './windows'
 
 // ---------------------------------------------------------------------------
 // Reactive per-runtime session state (view mirror of the wiring cache).
@@ -390,6 +390,7 @@ const SILENT_TURN_RETRY: ErrorSurface = { code: 'stream_drop', layer: 'streaming
 function withSilentTurnRetry(messages: ChatMessage[], streamId: string | null): ChatMessage[] {
   const occurredAt = Date.now() / 1000
   const error = 'The connection dropped before the reply finished.'
+
   const targetId =
     (streamId && messages.some(message => message.id === streamId) ? streamId : null) ??
     [...messages].reverse().find(message => message.role === 'assistant' && message.pending)?.id ??
@@ -823,6 +824,7 @@ export function clearAllSessionStates() {
   }
 
   sessionWatchdogTimers.clear()
+
   for (const timer of sessionEventSilenceTimers.values()) {
     clearTimeout(timer)
   }
@@ -1225,7 +1227,7 @@ export function setZoneParkedTiles(zoneKey: string, storedSessionIds: readonly s
 }
 
 export const $sessionTiles = atom<SessionTile[]>(
-  isSecondaryWindow() || isBrowserWindow()
+  isSecondaryWindow() || isPopoutWindow()
     ? []
     : [...(tilesByProfile[profileKey()] ?? []), ...(tilesByProfile[BOTS_TILE_BUCKET] ?? [])]
 )
@@ -1233,7 +1235,7 @@ export const $sessionTiles = atom<SessionTile[]>(
 function persistTiles() {
   // Shares the origin's storage; a secondary / browser pop-out holds no tiles,
   // so a write back would only wipe the primary's set.
-  if (isSecondaryWindow() || isBrowserWindow()) {
+  if (isSecondaryWindow() || isPopoutWindow()) {
     return
   }
 
@@ -1265,7 +1267,7 @@ function saveTiles(tiles: SessionTile[]) {
 // they re-resume against the now-current gateway. (Fires immediately on
 // subscribe; harmless — the init value already matches.) A secondary window
 // never carries tiles, so it stays out of this entirely.
-if (!isSecondaryWindow() && !isBrowserWindow()) {
+if (!isSecondaryWindow() && !isPopoutWindow()) {
   $activeGatewayProfile.subscribe(() => {
     $sessionTiles.set([...(tilesByProfile[profileKey()] ?? []), ...(tilesByProfile[BOTS_TILE_BUCKET] ?? [])])
   })

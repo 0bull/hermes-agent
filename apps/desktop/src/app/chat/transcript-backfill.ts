@@ -16,7 +16,7 @@
  */
 
 import { getOlderSessionMessages, type ProfileScope } from '@/hermes'
-import { type ChatMessage, toChatMessages } from '@/lib/chat-messages'
+import { type ChatMessage, chatMessageText, toChatMessages } from '@/lib/chat-messages'
 import {
   recordTranscriptBackfillPage,
   tailStateFromPage,
@@ -150,11 +150,21 @@ interface StoredRowSlot {
   leading: ChatMessage[]
 }
 
+/** One logical stored message across compaction generations — the same
+ *  role/timestamp/content the backend's display dedupe folds on. */
+function logicalRowKey(message: ChatMessage): string | undefined {
+  return message.rowId === undefined || message.timestamp === undefined
+    ? undefined
+    : JSON.stringify([message.role, message.timestamp, chatMessageText(message)])
+}
+
 /**
  * Stored-id merge for a page that overlaps the window but does not anchor in
  * front of it. A row with no stored id travels with the next stored row after
  * it, so a page-local fold stays in front of the row it preceded. Rows with no
  * stored id after the last stored row stay at the end (page first, then live).
+ * A window row the page re-inserted under a new stored id (in-place compaction
+ * re-sequences the carried tail) is that page row, not a second message.
  */
 function mergeOverlappingTail(previous: ChatMessage[], refreshedTail: ChatMessage[]): ChatMessage[] {
   // Compaction, rewind, or a different session arrives as new stored ids.
@@ -164,7 +174,15 @@ function mergeOverlappingTail(previous: ChatMessage[], refreshedTail: ChatMessag
   }
 
   const refreshedIds = new Set(refreshedTail.map(message => message.id))
+  const refreshedRowIds = durableRowIds(refreshedTail)
+  const refreshedLogicalRows = new Set(refreshedTail.map(logicalRowKey).filter(key => key !== undefined))
   const byRowId = new Map<number, StoredRowSlot>()
+
+  const reinsertedByPage = (message: ChatMessage, rowId: number) => {
+    const key = logicalRowKey(message)
+
+    return key !== undefined && !refreshedRowIds.has(rowId) && refreshedLogicalRows.has(key)
+  }
 
   const place = (messages: ChatMessage[], fresh: boolean): ChatMessage[] => {
     let pending: ChatMessage[] = []
@@ -181,7 +199,7 @@ function mergeOverlappingTail(previous: ChatMessage[], refreshedTail: ChatMessag
 
       const existing = byRowId.get(message.rowId)
 
-      if (!fresh && existing) {
+      if (!fresh && (existing || reinsertedByPage(message, message.rowId))) {
         pending = []
 
         continue

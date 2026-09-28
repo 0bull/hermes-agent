@@ -7,7 +7,7 @@
 //     pen-web-preload's `pen:connect` relay.
 //   - editor → embedder requests are STORAGE (the embedder owns the document):
 //     storage-load / storage-write / storage-{read,write,has}-asset, backed
-//     by the document's .pen file + an assets/ folder beside it.
+//     by the document's .pen file + its assets beside it (assets.ts).
 //   - embedder → editor requests are the MCP surface: get-mcp-schema (live
 //     tool list, fetched on open / action=schema) and mcp-tool-call — plus
 //     browser-import, which drops a web capture onto the canvas (web-import.ts).
@@ -17,6 +17,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { resolvePenAssetPath } from './assets'
 import { liveDocument, penDocumentFilePath } from './documents'
 import { isPenWebUrl } from './embed-url'
 import { isPenSchemaAction } from './mcp'
@@ -62,18 +63,10 @@ function activeDoc(): PenDocument | null {
   return liveDocument() ?? null
 }
 
-// Assets live in an assets/ folder beside the .pen, keyed by relative path.
-function assetPath(doc: PenDocument, relativePath: string): string | null {
+function assetPath(doc: PenDocument, key: string): string | null {
   const filePath = penDocumentFilePath(doc)
 
-  if (!filePath) {
-    return null
-  }
-
-  const dir = path.dirname(filePath)
-  const resolved = path.normalize(path.join(dir, 'assets', relativePath))
-
-  return resolved.startsWith(dir + path.sep) ? resolved : null
+  return filePath ? resolvePenAssetPath(filePath, key) : null
 }
 
 async function handleStorageRequest(doc: PenDocument, method: string, payload: any): Promise<unknown> {

@@ -183,6 +183,45 @@ EXTENSION_NAMES = _CatalogValues(
 )
 DISPLAY_LANGUAGES = _CatalogValues("display_languages", extra=frozenset({"other"}))
 
+# ---- v4 reliability ----
+UPDATE_RUN_MARK = UPDATE_RUN_METRIC = "hermes.update.run"
+UPDATE_STAGE_MARK = UPDATE_STAGE_METRIC = "hermes.update.stage"
+PROCESS_EXIT_MARK = PROCESS_EXIT_METRIC = "hermes.process.exit"
+UPDATE_KINDS = frozenset({"cli", "desktop"})
+UPDATE_OUTCOMES = frozenset({"failed", "noop", "refused", "success"})
+# `hermes update` pipeline stages, in pipeline order (the receipt's stage marks use these names).
+UPDATE_STAGE_ORDER = ("plan", "snapshot", "apply", "deps", "build", "restart", "verify")
+UPDATE_STAGES = frozenset(UPDATE_STAGE_ORDER)
+# Desktop's packaged updaters (electron-updater, App Installer, Store) fail at their own steps.
+DESKTOP_UPDATE_STAGES = frozenset({"apply", "download", "restart", "verify"})
+UPDATE_FAILED_STAGES = UPDATE_STAGES | DESKTOP_UPDATE_STAGES | {"none", "other"}
+UPDATE_STAGE_OUTCOMES = frozenset({"failed", "skipped", "success"})
+UPDATE_DURATION_BUCKETS = frozenset({"lt_30s", "30s_to_2m", "2m_to_5m", "5m_to_15m", "gte_15m"})
+VERSION_AGE_BUCKETS = frozenset({"lt_7d", "7d_to_30d", "30d_to_90d", "gte_90d", "unknown"})
+# package = an OS/app-store style installer applied the update (Desktop packaged builds).
+UPDATE_APPLY_MODES = frozenset({"external", "git", "package", "unknown", "zip"})
+PROCESS_KINDS = frozenset({"cli", "cron", "gateway", "other", "serve", "tui"})
+PROCESS_EXIT_KINDS = frozenset({"clean", "crash", "killed", "watchdog"})
+CRASH_CLASSES = frozenset({"import_error", "memory_error", "none", "os_error", "other", "runtime_error"})
+_UPDATE_DURATION_THRESHOLDS = (
+    (30_000, "lt_30s"), (120_000, "30s_to_2m"), (300_000, "2m_to_5m"), (900_000, "5m_to_15m"),
+)
+_DAY_MS = 86_400_000
+_VERSION_AGE_THRESHOLDS = ((7 * _DAY_MS, "lt_7d"), (30 * _DAY_MS, "7d_to_30d"), (90 * _DAY_MS, "30d_to_90d"))
+
+
+def update_duration_bucket(duration_ms: Any) -> str:
+    """Bucket an update (or update stage) wall time; non-numbers count as instant."""
+    value = _non_negative_number(duration_ms) or 0
+    return _bucket(value, _UPDATE_DURATION_THRESHOLDS, "gte_15m")
+
+
+def version_age_bucket(age_ms: Any) -> str:
+    """Bucket the age of the version an update started from; unknown when not measurable."""
+    value = _non_negative_number(age_ms)
+    return "unknown" if value is None else _bucket(value, _VERSION_AGE_THRESHOLDS, "gte_90d")
+# ---- end v4 reliability ----
+
 _ARCHITECTURE_ALIASES = {
     "amd64": "x86_64", "x64": "x86_64", "x86_64": "x86_64",
     "aarch64": "arm64", "arm64": "arm64",
@@ -322,6 +361,19 @@ _COUNTER_DIMENSION_VALUES: dict[str, dict[str, frozenset[str]]] = {
         "kind": EXTENSION_KINDS, "name": EXTENSION_NAMES, "outcome": EXTENSION_OUTCOMES,
         "source": EXTENSION_SOURCES,
     },
+    # ---- v4 reliability ----
+    UPDATE_RUN_METRIC: {
+        "apply_mode": UPDATE_APPLY_MODES, "duration_bucket": UPDATE_DURATION_BUCKETS,
+        "failed_stage": UPDATE_FAILED_STAGES, "from_version_age_bucket": VERSION_AGE_BUCKETS,
+        "kind": UPDATE_KINDS, "outcome": UPDATE_OUTCOMES,
+    },
+    UPDATE_STAGE_METRIC: {
+        "duration_bucket": UPDATE_DURATION_BUCKETS, "outcome": UPDATE_STAGE_OUTCOMES, "stage": UPDATE_STAGES,
+    },
+    PROCESS_EXIT_METRIC: {
+        "crash_class": CRASH_CLASSES, "exit_kind": PROCESS_EXIT_KINDS, "process_kind": PROCESS_KINDS,
+    },
+    # ---- end v4 reliability ----
 }
 _MODEL_ROUTE_MAX_LENGTHS = {
     "model": MODEL_IDENTIFIER_MAX_LENGTH, "provider": PROVIDER_IDENTIFIER_MAX_LENGTH,
@@ -365,6 +417,10 @@ _DECISION_MARK_METRICS = {
     COMPRESSION_MARK: COMPRESSION_METRIC, MODEL_SWITCH_MARK: MODEL_SWITCH_METRIC,
     FALLBACK_MARK: FALLBACK_METRIC, SLASH_COMMAND_MARK: SLASH_COMMAND_METRIC,
     EXTENSION_INSTALL_MARK: EXTENSION_INSTALL_METRIC,
+    # ---- v4 reliability ----
+    UPDATE_RUN_MARK: UPDATE_RUN_METRIC, UPDATE_STAGE_MARK: UPDATE_STAGE_METRIC,
+    PROCESS_EXIT_MARK: PROCESS_EXIT_METRIC,
+    # ---- end v4 reliability ----
 }
 
 

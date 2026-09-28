@@ -278,6 +278,9 @@ itself ships.
 | `hermes.fallback.count` | from/to provider, error class | How often fallback providers rescue a turn, and from what. |
 | `hermes.slash_command.count` | command, surface | Which built-in commands are used (`/retry`, `/undo`, `/new` are friction signals). Skill and plugin commands report `skill`/`plugin`. |
 | `hermes.extension.install.count` | kind, source, name, outcome | Which catalog skills, MCP servers and plugins get installed. `name` is a bundled/optional skill, `optional-mcps/` or `plugin-catalog/` entry, otherwise `custom`. |
+| `hermes.update.run` | kind, outcome, failed_stage, duration_bucket, from_version_age_bucket, apply_mode | Whether updates succeed, how long they take, where they fail, and how stale the version being updated from was. `hermes update` rows are derived from the final update receipt (`kind` is `desktop` when Desktop's source-checkout hand-off ran it); Desktop packaged self-updates (`apply_mode=package`) are reported once by the app, after the restart that applies them. |
+| `hermes.update.stage` | stage, outcome, duration_bucket | Per-stage result and wall time of `hermes update` (plan, snapshot, apply, deps, build, restart, verify), from the receipt's stage timestamps. |
+| `hermes.process.exit` | process_kind, exit_kind, crash_class | How CLI / TUI / gateway / serve / cron-tick processes end (`clean`, `crash` with an exception family only, `killed`, `watchdog`), reported by the next start in the same profile from a local marker. Turns aborted by a turn watchdog also count as `exit_kind=watchdog`. |
 
 Sessions are summarized when they close (finalize, reset or process exit);
 delegated child sessions are not counted separately. Milestones latch in the

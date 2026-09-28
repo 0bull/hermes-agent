@@ -1178,6 +1178,8 @@ export const frOverrides = {
       introSplashDesc: "Le logo et l'invite affichés dans une conversation vide.",
       reactionsTitle: 'Réactions aux messages',
       reactionsDesc: 'Réactions emoji façon iMessage — réagissez aux messages, et Hermes peut réagir aux vôtres.',
+      stickyUserMessagesTitle: 'Messages épinglés',
+      stickyUserMessagesDesc: "Gardez votre dernier message épinglé en haut de la conversation pendant le défilement des longues discussions.",
       tipsTitle: "Astuces dans l'application",
       tipsDesc:
         "Une petite bulle désigne occasionnellement une partie de l'application lorsque vous êtes inactif ou lorsque Hermes peut vous aider. Fermer une astuce la masque définitivement.",

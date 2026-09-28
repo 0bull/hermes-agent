@@ -1205,6 +1205,8 @@ export const en: Translations = {
       introSplashDesc: 'The wordmark and prompt shown on an empty chat.',
       reactionsTitle: 'Message Reactions',
       reactionsDesc: 'iMessage-style emoji tapbacks — react to messages, and Hermes can react to yours.',
+      stickyUserMessagesTitle: 'Sticky User Messages',
+      stickyUserMessagesDesc: 'Keep your latest message pinned at the top of the conversation while scrolling through long threads.',
       tipsTitle: 'In-App Tips',
       tipsDesc:
         'Occasional hints from the app and Hermes. Each tip appears once. Turns off automatically after your first 30 days; you can turn it back on.',

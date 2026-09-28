@@ -1526,7 +1526,7 @@ class GatewayTurnMixin:
                 _platform_name, source.chat_id or "unknown",
             )
             _intentional_silence = False
-            response = _UNEXPECTED_SILENCE_REPLY
+            response = _unexpected_silence_reply()
         elif _intentional_silence and not is_machinery_display_kind(_silence_kind):
             logger.debug(
                 "silence marker suppressed on an unaddressed turn: platform=%s chat=%s",
@@ -3710,7 +3710,7 @@ class GatewayTurnMixin:
                     "Queued follow-up for session %s: replacing a human-turn silence marker.",
                     session_key or "?",
                 )
-                first_response = _UNEXPECTED_SILENCE_REPLY
+                first_response = _unexpected_silence_reply()
                 _already_streamed = False
         # Failed turns deliver their text but never their attachments (completed-turn parity).
         _deliver_media = not _delivery_result.get("failed")

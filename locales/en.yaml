@@ -840,3 +840,35 @@ gateway:
     db_fts_corrupt: "⚠️ Session database reported a corruption error confined to the search index (FTS5); the message tables are not damaged. Messages may not be persisted until it is repaired: run `hermes {profile_arg}doctor --fix`, then restart the gateway. Do not run recovery tools or restore a backup unless `hermes {profile_arg}doctor` confirms damage."
     db_then_restart: "{action} Then `hermes {profile_arg}gateway restart`."
     db_unavailable: "⚠️ Session database unavailable — messages may not be saved and /resume will be empty. Cause: {cause}. {action}"
+
+platform:
+  whatsapp:
+    clarify_other_title: "✏️ Other"
+    clarify_other_description: "Type your own answer"
+    clarify_list_button: "Choose"
+    clarify_list_section: "Options"
+    approve_button: "✅ Approve"
+    deny_button: "❌ Deny"
+    slash_confirm_once: "✅ Approve Once"
+    slash_confirm_always: "🔒 Always"
+    slash_confirm_cancel: "❌ Cancel"
+    clarify_type_answer: "✏️ Type your answer:"
+    approved: "✅ Approved."
+    denied: "❌ Denied."
+    approval_expired: "⌛ Approval expired — command was not run (already timed out or resolved elsewhere)."
+  yuanbao:
+    slow_response_notice: "This task is a bit involved — still working on it, please hang on..."
+    owner_command_denied: "⚠️ {command} is only available to the creator in private chat mode"
+  shared:
+    truncated_suffix: "\n...(truncated)"
+  weixin:
+    voice_as_attachment: "[voice message as attachment]"
+  signal:
+    batch_pacing_notice: "(More images coming — pausing ~{wait} for Signal rate limit, batch {batch}/{total}.)"
+    wait_seconds: "{count}s"
+    wait_minutes: "{count} min"
+  api_server:
+    provider_auth_failed: "Provider authentication failed"
+    provider_rate_limited: "Provider rate-limited"
+    provider_error_line: "⚠️ {label}: {error}"
+    transformed_notice: "\n\n[Response transformed after streaming]\n"

@@ -466,3 +466,7 @@ Future messages in this room will use that transcript until `/reset` or another 
 
   clarify:
     native_stream_placeholder: "💬 等待你的选择..."
+
+platform:
+  yuanbao:
+    slow_response_notice: "任务有点复杂，正在努力处理中，请耐心等待..."

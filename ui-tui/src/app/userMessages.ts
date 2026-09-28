@@ -268,10 +268,12 @@ export const describeTurnFailure = (payload: TurnFailure): string => {
   const code = typeof surface.code === 'string' ? surface.code : ''
   const layer = typeof surface.layer === 'string' ? surface.layer : ''
   const copy = turnCopyFor(code, layer)
+
   const title =
     typeof surface.provider === 'string' && surface.provider
       ? t('userMessages.turn.withProvider', copy.title, surface.provider)
       : copy.title
+
   // The backend always sets recoverable=true on a turn error; error_surface.retryable
   // is the signal that actually says whether /retry can help.
   const retryable = (surface as { retryable?: unknown }).retryable !== false && payload.recoverable !== false

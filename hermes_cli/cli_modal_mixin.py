@@ -84,7 +84,7 @@ def _gated_confirm(self, command, key, *, title, detail, choices, unchanged, alw
     if choice == "always":
         if save_config_value(f"approvals.{key}", False):
             print(always_msg)
-            print(t("cli.modal.re_enable_hint", key=key))
+            print(t("cli.modal.re_enable_hint", setting=key))
         else:
             print(persist_failed_msg or t("cli.modal.persist_opt_out_failed", once_verb=once_verb or ""))
     return choice

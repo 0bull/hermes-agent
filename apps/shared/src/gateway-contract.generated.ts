@@ -665,6 +665,18 @@ export interface SharedMetricsSlashCommandParams {
 export interface SharedMetricsSlashCommandResult {
   ok: boolean
 }
+/** One Desktop PACKAGED self-update (electron-updater / App Installer / Store). Source-checkout hand-offs run ``hermes update`` and are counted from its receipt, never here. Raw words; the backend buckets them: ``outcome`` success|failed|noop|refused, ``failed_stage`` download|verify|apply|restart, ``mechanism`` the updater strategy kind, ``duration_ms`` wall time, ``from_commit_date`` the updated-from build's commit time (epoch seconds) when known. */
+export interface SharedMetricsUpdateRunParams {
+  profile?: string | null
+  outcome: string
+  failed_stage?: string | null
+  mechanism?: string | null
+  duration_ms?: number | null
+  from_commit_date?: number | null
+}
+export interface SharedMetricsUpdateRunResult {
+  ok: boolean
+}
 export interface ModelOptionsParams {
   profile?: string | null
   session_id?: string | null
@@ -5105,6 +5117,8 @@ export interface RpcMethods {
   'shared_metrics.slash_command': { params: SharedMetricsSlashCommandParams; result: SharedMetricsSlashCommandResult }
   /** Pure read of the focused profile's shared-metrics opt-ins (collection, upload, answered). */
   'shared_metrics.status': { params: ProfileParams; result: SharedMetricsConsentResult }
+  /** Count one Desktop packaged self-update outcome (fire-and-forget; a no-op unless shared metrics are on). */
+  'shared_metrics.update_run': { params: SharedMetricsUpdateRunParams; result: SharedMetricsUpdateRunResult }
   /** Run a safe (non-dangerous) shell command captured for ``!cmd`` / inline substitution. */
   'shell.exec': { params: ShellExecParams; result: ShellExecResult }
   /** Skills hub backend: list the profile's skills or search / browse / inspect / install from the hub. */
@@ -5388,6 +5402,7 @@ export const RPC_METHODS = [
   'shared_metrics.set',
   'shared_metrics.slash_command',
   'shared_metrics.status',
+  'shared_metrics.update_run',
   'shell.exec',
   'skills.manage',
   'skills.reload',

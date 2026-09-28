@@ -23,7 +23,7 @@ import threading
 from dataclasses import dataclass, field
 from itertools import count
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Mapping
 
 logger = logging.getLogger(__name__)
 
@@ -273,10 +273,6 @@ def _reset_registry_for_tests() -> None:
 def registered_packs() -> tuple[PackEntry, ...]:
     with _lock:
         return tuple(_packs)
-
-
-def languages_of(entries: Iterable[PackEntry]) -> frozenset[str]:
-    return frozenset(entry.lang for entry in entries)
 
 
 __all__ = [

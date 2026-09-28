@@ -1,3 +1,5 @@
+import type { CanvasTab } from '@/app/chat/canvas-tile'
+
 import { notifyError } from './notifications'
 
 // Window flag set by the Electron main process when it opens a standalone
@@ -130,16 +132,9 @@ export function isCanvasWindow(): boolean {
   return result
 }
 
-export interface CanvasWindowTab {
-  provider: string
-  docId: string
-  title: string
-  url: string
-}
-
 export function windowCanvasTab(
   search = typeof window === 'undefined' ? '' : window.location.search
-): CanvasWindowTab | null {
+): CanvasTab | null {
   try {
     const params = new URLSearchParams(search)
     const provider = params.get('provider')?.trim()
@@ -321,7 +316,7 @@ export function canOpenCanvasWindow(): boolean {
 /** Pop a canvas provider's pane into its own OS window (or hand an open one
  *  the tab). Returns whether it opened so the caller can seat the tile again
  *  on failure. */
-export async function openCanvasInNewWindow(tab: CanvasWindowTab): Promise<boolean> {
+export async function openCanvasInNewWindow(tab: CanvasTab): Promise<boolean> {
   if (!canOpenCanvasWindow()) {
     return false
   }

@@ -216,8 +216,7 @@ export function watchCanvasTiles(): void {
   window.hermesDesktop?.onCanvasPopoutClosed?.(dockCanvasTile)
 }
 
-/** A `?win=canvas` window: seat the tab it was opened with, then follow
- *  whatever the docked side hands it. Returns the provider's pane. */
+/** The `?win=canvas` window's whole content: the seated provider's pane. */
 export function CanvasPopoutHost() {
   const tabs = useStore($canvasTabs)
   const tab = tabs[0]
@@ -226,6 +225,8 @@ export function CanvasPopoutHost() {
   return provider ? <ContribRender render={provider.render} /> : null
 }
 
+/** A `?win=canvas` window: seat the tab it was opened with, then follow
+ *  whatever the docked side hands it. No-op anywhere else. */
 export function seatCanvasWindow(): void {
   if (!isCanvasWindow()) {
     return

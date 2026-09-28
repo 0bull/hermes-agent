@@ -1,0 +1,12 @@
+[
+  "common.cancel",
+  "common.no",
+  "common.unknown",
+  "common.yes",
+  "overlay.close",
+  "rpc.requestFailed",
+  "status.mcpReloaded",
+  "status.ready",
+  "status.running",
+  "status.summoning"
+]

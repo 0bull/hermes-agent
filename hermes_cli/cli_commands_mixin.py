@@ -1133,9 +1133,12 @@ class CLICommandsMixin:
         platform_name = _command_arg(cmd_original).lower()
         if not platform_name:
             return self._handoff_keep(
-                "  Usage: /handoff <platform>",
-                "  Hands the current session off to that platform's home channel.",
-                "  The CLI session ends here; resume it later with /resume.")
+                "  Usage: /handoff <platform>|desktop",
+                "  Hands the current session off to that platform's home channel, or opens it in",
+                "  the Hermes Desktop app. The CLI session ends here; resume it later with /resume.")
+        if platform_name == "desktop":
+            from hermes_cli.cli_handoff_desktop import handoff_to_desktop
+            return handoff_to_desktop(self)
         home = self._handoff_validate_target(platform_name)
         if home is None:
             return True

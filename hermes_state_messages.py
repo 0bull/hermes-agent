@@ -1156,15 +1156,22 @@ class SessionMessagesMixin:
             (row_id, session_id))
 
     def _display_dedupe_key(self, row) -> Tuple[Any, ...]:
-        """Historical display identity, including normalized live content from user handoff carriers."""
+        """Historical display identity, including normalized live content from user handoff carriers.
+
+        Text is compared through the loader's lens: a compaction copy is written from the reloaded
+        (sanitized + stripped) view of its original, so raw bytes alone split one message in two."""
         dedupe_content = row["content"]
-        if row["role"] == "user":
-            handoff, live_view = split_user_originated_turn({
-                "role": "user", "content": self._decode_content(row["content"]),
-                "display_kind": row["display_kind"],
-                "display_metadata": self._decode_display_metadata(row["display_metadata"])})
-            if handoff is not None and live_view is not None:
-                dedupe_content = self._encode_content(live_view.get("content"))
+        if row["role"] in ("user", "assistant"):
+            content = self._decode_content(row["content"])
+            if row["role"] == "user":
+                handoff, live_view = split_user_originated_turn({
+                    "role": "user", "content": content, "display_kind": row["display_kind"],
+                    "display_metadata": self._decode_display_metadata(row["display_metadata"])})
+                if handoff is not None and live_view is not None:
+                    content = live_view.get("content")
+                    dedupe_content = self._encode_content(content)
+            if isinstance(content, str):
+                dedupe_content = self._encode_content(self._loaded_view_content(row["role"], content))
         return (row["role"], dedupe_content, row["timestamp"],
                 row["tool_call_id"], row["tool_calls"], row["tool_name"])
 

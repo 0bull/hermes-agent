@@ -44,6 +44,14 @@ class CommandDef:
     # Desktop availability: None = offered; "hidden" = runs but out of the popover; else a reason.
     desktop: str | None = None
 
+    def describe(self) -> str:
+        """Localized description (``slash.<name>.description``), falling back to the English field."""
+        from agent.i18n import t
+
+        key = f"slash.{self.name}.description"
+        text = t(key)
+        return self.description if text == key else text
+
 
 VALID_BUSY_POLICIES: frozenset[str] = frozenset({"dispatch", "reject", "interrupt_then_dispatch"})
 

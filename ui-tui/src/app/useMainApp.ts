@@ -71,12 +71,12 @@ import { useConfigSync } from './useConfigSync.js'
 import { shouldDetachEditedHistoryInput, useInputHandlers } from './useInputHandlers.js'
 import { useLongRunToolCharms } from './useLongRunToolCharms.js'
 import {
-  BACKEND_GAVE_UP_ACTIVITY,
-  BACKEND_RESTARTING,
-  BACKEND_RESTARTING_ACTIVITY,
   backendGaveUp,
-  CONNECTION_LOST,
-  CONNECTION_LOST_ACTIVITY,
+  backendGaveUpActivity,
+  backendRestarting,
+  backendRestartingActivity,
+  connectionLost,
+  connectionLostActivity,
   lastStderrLine
 } from './userMessages.js'
 import { useSessionLifecycle } from './useSessionLifecycle.js'
@@ -1003,8 +1003,8 @@ export function useMainApp(gw: GatewayClient) {
         patchUiState({ busy: false, compacting: false, sid: null, status: 'reconnecting…' })
 
         if (state.sid) {
-          turnController.pushActivity(CONNECTION_LOST_ACTIVITY, 'warn')
-          sys(CONNECTION_LOST)
+          turnController.pushActivity(connectionLostActivity(), 'warn')
+          sys(connectionLost())
         }
 
         return
@@ -1026,8 +1026,8 @@ export function useMainApp(gw: GatewayClient) {
 
       if (plan.recover && plan.sid) {
         recoverSidRef.current = plan.sid
-        turnController.pushActivity(BACKEND_RESTARTING_ACTIVITY, 'warn')
-        sys(BACKEND_RESTARTING)
+        turnController.pushActivity(backendRestartingActivity(), 'warn')
+        sys(backendRestarting())
         gw.start()
 
         return
@@ -1043,7 +1043,7 @@ export function useMainApp(gw: GatewayClient) {
 
       if (!gaveUpRef.current) {
         gaveUpRef.current = true
-        turnController.pushActivity(BACKEND_GAVE_UP_ACTIVITY, 'error')
+        turnController.pushActivity(backendGaveUpActivity(), 'error')
         sys(`error: ${backendGaveUp(code, lastStderrLine(gw.getLogTail(20)))}`)
       }
     }

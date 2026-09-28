@@ -38,9 +38,9 @@ import { turnController } from './turnController.js'
 import { getTurnState } from './turnStore.js'
 import { getUiState, patchUiState } from './uiStore.js'
 import {
-  BACKEND_SLOW_START,
-  BACKEND_SLOW_START_STATUS,
   backendReconnecting,
+  backendSlowStart,
+  backendSlowStartStatus,
   describeRpcError,
   describeTurnFailure,
   isBareErrorText,
@@ -1170,8 +1170,8 @@ export function createGatewayEventHandler(ctx: GatewayEventHandlerContext): (ev:
         // "wrong python" / "missing dep" stay diagnosable at a glance.
         const { stderr_tail: stderrTail } = ev.payload ?? {}
 
-        setStatus(BACKEND_SLOW_START_STATUS)
-        turnController.pushActivity(BACKEND_SLOW_START, 'warn')
+        setStatus(backendSlowStartStatus())
+        turnController.pushActivity(backendSlowStart(), 'warn')
 
         const STDERR_LINE_CAP = 120
         const STDERR_LINES_MAX = 4

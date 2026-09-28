@@ -18,6 +18,7 @@ from contextlib import nullcontext, suppress
 from contextvars import copy_context
 from datetime import datetime
 from pathlib import Path
+from agent.i18n import t
 from gateway.config import Platform
 from gateway.delivery import looks_like_telegram_private_chat_id
 from gateway.platforms.base import BasePlatformAdapter
@@ -1673,7 +1674,7 @@ class GatewayStartupMixin:
         cli_title = row.get("title") or cli_session_id[:8]
         try:
             new_thread_id = await transport.adapter.create_handoff_thread(
-                home_chat_id, f"Hermes — {cli_title}",
+                home_chat_id, t("gateway.startup.handoff_thread_title", title=cli_title),
             )
         except Exception as exc:
             logger.debug("Handoff: create_handoff_thread raised on %s: %s", platform_name, exc, exc_info=True)

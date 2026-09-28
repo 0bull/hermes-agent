@@ -24,7 +24,7 @@ from gateway.platforms.event import MessageEvent, MessageType
 from gateway.run_busy import approval_input_words
 from gateway.run_common import _UNSET
 from gateway.run_inbound_unauthorized import (
-    PAIRING_RATE_LIMITED_REPLY, UnauthorizedOwnerNotifier, pairing_code_reply, pairing_profile_arg,
+    UnauthorizedOwnerNotifier, pairing_code_reply, pairing_profile_arg, pairing_rate_limited_reply,
     unauthorized_owner_hint,
 )
 from gateway.session import (
@@ -118,7 +118,7 @@ class GatewayInboundMixin:
         if code:
             reply = pairing_code_reply(platform_name, code, pairing_profile_arg(pairing_store))
         else:
-            reply = PAIRING_RATE_LIMITED_REPLY
+            reply = pairing_rate_limited_reply()
         if adapter:
             await adapter.send(source.chat_id, reply)
         if not code:

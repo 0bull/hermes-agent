@@ -11,8 +11,10 @@
 
 import { appEn } from './en/app.js'
 import { chromeEn } from './en/chrome.js'
+import { contentEn } from './en/content.js'
 import { libEn } from './en/lib.js'
 import { overlaysEn } from './en/overlays.js'
+import { secureEn } from './en/secure.js'
 import { slashEn } from './en/slash.js'
 
 export const en = {
@@ -20,8 +22,18 @@ export const en = {
   ...overlaysEn,
   ...appEn,
   ...slashEn,
-  ...libEn
+  ...libEn,
+  ...secureEn,
+  ...contentEn
 }
 
 /** The sibling catalogs `en` is composed from, for the disjointness test. */
-export const EN_SIBLINGS: readonly Record<string, unknown>[] = [chromeEn, overlaysEn, appEn, slashEn, libEn]
+export const EN_SIBLINGS: readonly Record<string, unknown>[] = [
+  chromeEn,
+  overlaysEn,
+  appEn,
+  slashEn,
+  libEn,
+  secureEn,
+  contentEn
+]

@@ -10,7 +10,7 @@ import type { BatteryInfo, IndicatorStyle, Notice } from '../app/interfaces.js'
 import { $isStatusRuleOccluded } from '../app/overlayStore.js'
 import { useTurnSelector } from '../app/turnStore.js'
 import { DEV_CREDITS_MODE } from '../config/env.js'
-import { FACES } from '../content/faces.js'
+import { faces } from '../content/faces.js'
 import { VERBS } from '../content/verbs.js'
 import { fmtDuration } from '../domain/messages.js'
 import { stickyPromptFromViewport } from '../domain/viewport.js'
@@ -51,7 +51,9 @@ interface IndicatorRender {
 
 const renderIndicator = (style: IndicatorStyle, tick: number): IndicatorRender => {
   if (style === 'kaomoji') {
-    return { frame: FACES[tick % FACES.length] ?? '', intervalMs: FACE_TICK_MS, showVerb: true }
+    const frames = faces()
+
+    return { frame: frames[tick % frames.length] ?? '', intervalMs: FACE_TICK_MS, showVerb: true }
   }
 
   if (style === 'emoji') {
@@ -80,14 +82,26 @@ const renderIndicator = (style: IndicatorStyle, tick: number): IndicatorRender =
   return { frame, intervalMs: Math.max(SPINNER_TICK_MS, spinner.interval), showVerb: false }
 }
 
-// `FACES` / `EMOJI_FRAMES` are static, so measure their widest glyph once at
-// module load instead of rescanning on every status render.
-const KAOMOJI_FRAME_WIDTH = FACES.reduce((max, f) => Math.max(max, stringWidth(f)), 1)
+// `EMOJI_FRAMES` is static, so measure its widest glyph once at module load
+// instead of rescanning on every status render. `faces()` follows the active
+// catalog, so its width is memoised per catalog table instead.
 const EMOJI_FRAME_WIDTH = EMOJI_FRAMES.reduce((max, f) => Math.max(max, stringWidth(f)), 1)
+
+let kaomojiWidthCache: { table: unknown; width: number } | null = null
+
+const kaomojiFrameWidth = (): number => {
+  const table = messages().content.faces
+
+  if (kaomojiWidthCache?.table !== table) {
+    kaomojiWidthCache = { table, width: Object.values(table).reduce((max, f) => Math.max(max, stringWidth(f)), 1) }
+  }
+
+  return kaomojiWidthCache.width
+}
 
 const indicatorFrameWidth = (style: IndicatorStyle): number => {
   if (style === 'kaomoji') {
-    return KAOMOJI_FRAME_WIDTH
+    return kaomojiFrameWidth()
   }
 
   if (style === 'emoji') {

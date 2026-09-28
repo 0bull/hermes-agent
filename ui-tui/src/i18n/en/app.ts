@@ -1,9 +1,7 @@
-// app/ layer: slash handler replies, notices, user-facing RPC error copy, turn
-// controller activity lines, session lifecycle. Owned namespaces: `slash`,
-// `notice`, `rpc`, `turn`, `session`, `queue`.
+// app/ layer (excluding slash): notices, turn-controller activity lines, gateway
+// event copy, server-request prompts, session lifecycle, queue, pet.
+// Owned namespaces: `notice`, `turn`, `session`, `queue`, `event`, `request`, `pet`.
 
 export const appEn = {
-  rpc: {
-    requestFailed: 'request failed'
-  }
+  notice: {}
 }

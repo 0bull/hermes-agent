@@ -24,8 +24,8 @@ import { ExternalLink } from '@/lib/external-link'
 import { AlertTriangle } from '@/lib/icons'
 import { resolvePluginSourceLinks } from '@/lib/plugin-source-urls'
 import { type AgentPluginLiveNow, COMMIT_SHA_RE, installAgentPlugin, loadAgentPlugins } from '@/store/agent-plugins'
-import { notify } from '@/store/notifications'
 import { confirm } from '@/store/confirm'
+import { notify } from '@/store/notifications'
 import {
   $pluginInstallRequest,
   closePluginInstallRequest,
@@ -238,6 +238,7 @@ export function PluginInstallModal() {
           ref: pinRefTrimmed || undefined,
           profile: targetProfile
         }
+
         let result = await installAgentPlugin(requestGateway, installOptions)
 
         if (result.dependencyReview) {
@@ -266,10 +267,12 @@ export function PluginInstallModal() {
             ...installOptions,
             dependencyConsent: result.dependencyReview.token
           })
+
           // A moving ref or changed selection must be reviewed again. Never
           // install the desktop half or report success for an unaccepted retry.
           if (result.dependencyReview) {
             setInstallError(result.error || m.agentFailed)
+
             return
           }
         }

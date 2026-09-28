@@ -140,7 +140,6 @@ export function ConfirmDialog({
     <Dialog onOpenChange={value => !value && !busy && onClose()} open={open}>
       <DialogContent
         className={overModal ? 'max-w-md z-(--z-over-modal-content)' : 'max-w-md'}
-        overlayClassName={overModal ? 'z-(--z-over-modal)' : undefined}
         onKeyDown={event => {
           // Enter/Space confirm regardless of which button holds focus
           // (preventDefault stops a focused Cancel from swallowing it).
@@ -157,6 +156,7 @@ export function ConfirmDialog({
           event.preventDefault()
           confirmRef.current?.focus()
         }}
+        overlayClassName={overModal ? 'z-(--z-over-modal)' : undefined}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

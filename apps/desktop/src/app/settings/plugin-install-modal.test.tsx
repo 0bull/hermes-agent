@@ -20,9 +20,8 @@ vi.mock('@/hermes', async importOriginal => ({
 
 vi.mock('@/sdk/runtime', () => ({ installPluginSdk: vi.fn(), sdkImportMap: {} }))
 vi.mock('@/store/confirm', () => ({ confirm: vi.fn() }))
-import { confirm } from '@/store/confirm'
-
 import { queryClient } from '@/lib/query-client'
+import { confirm } from '@/store/confirm'
 import {
   $pluginInstallRequest,
   closePluginInstallRequest,
@@ -91,8 +90,9 @@ describe('Install from Git entry flow', () => {
     vi.mocked(confirm).mockResolvedValue(accepted)
     const installs: Record<string, unknown>[] = []
     requestGateway.mockImplementation(async (_method, params) => {
-      if (params?.action !== 'install') return { plugins: [] }
+      if (params?.action !== 'install') {return { plugins: [] }}
       installs.push(params)
+
       return params.dependency_consent
         ? { ok: true, plugin_name: 'example' }
         : {
@@ -107,7 +107,7 @@ describe('Install from Git entry flow', () => {
     renderFlow()
     act(() => openPluginInstallRequest({ repo: 'https://github.com/example/plugin' }))
     await screen.findByText('This package includes')
-    fireEvent.click(screen.getByRole('button', { name: 'Install', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }))
     await waitFor(() => expect(confirm).toHaveBeenCalledOnce())
     const ask = vi.mocked(confirm).mock.calls[0][0]
 
@@ -121,6 +121,7 @@ describe('Install from Git entry flow', () => {
     expect(ask.codeList).toEqual({ label: 'Python requirements', items: ['requests>=2,<3'] })
     await waitFor(() => expect(installs).toHaveLength(accepted ? 2 : 1))
     expect(installs[0]).not.toHaveProperty('dependency_consent')
+
     if (accepted) {
       expect(installs[1]).toEqual({ ...installs[0], dependency_consent: 'candidate-A' })
     } else {
@@ -131,7 +132,7 @@ describe('Install from Git entry flow', () => {
 
   it('shows the empty-requirements caveat only when the scanned list is empty', async () => {
     requestGateway.mockImplementation(async (_method, params) => {
-      if (params?.action !== 'install') return { plugins: [] }
+      if (params?.action !== 'install') {return { plugins: [] }}
 
       return params.dependency_consent
         ? { ok: true, plugin_name: 'example' }
@@ -147,7 +148,7 @@ describe('Install from Git entry flow', () => {
     renderFlow()
     act(() => openPluginInstallRequest({ repo: 'https://github.com/example/plugin' }))
     await screen.findByText('This package includes')
-    fireEvent.click(screen.getByRole('button', { name: 'Install', exact: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }))
     await waitFor(() => expect(confirm).toHaveBeenCalledOnce())
 
     // Empty list: the build-backend caveat IS the copy, and there is no list.
@@ -163,11 +164,11 @@ describe('Install from Git entry flow', () => {
     let answer!: (ok: boolean) => void
     vi.mocked(confirm).mockReturnValue(new Promise<boolean>(resolve => (answer = resolve)))
     requestGateway.mockImplementation(async (_method, params) => {
-      if (params?.action !== 'install') return { plugins: [] }
+      if (params?.action !== 'install') {return { plugins: [] }}
 
       // The consented retry never settles: the footer must stay on the busy
       // label for as long as the install is actually in flight.
-      if (params.dependency_consent) return new Promise<never>(() => {})
+      if (params.dependency_consent) {return new Promise<never>(() => {})}
 
       return {
         ok: false,
@@ -180,12 +181,12 @@ describe('Install from Git entry flow', () => {
     renderFlow()
     act(() => openPluginInstallRequest({ repo: 'https://github.com/example/plugin' }))
     await screen.findByText('This package includes')
-    const install = screen.getByRole('button', { name: 'Install', exact: true })
+    const install = screen.getByRole('button', { name: 'Install' })
     fireEvent.click(install)
     await waitFor(() => expect(confirm).toHaveBeenCalledOnce())
 
     // Pending consent: the footer still reads Install, not Installing….
-    expect(screen.getByRole('button', { name: 'Install', exact: true })).toBe(install)
+    expect(screen.getByRole('button', { name: 'Install' })).toBe(install)
     expect(screen.queryByRole('button', { name: 'Installing…' })).toBeNull()
 
     // Once answered, the install proceeds and the busy label returns.

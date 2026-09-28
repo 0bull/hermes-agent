@@ -10,18 +10,33 @@
 // `locales/_keys.tui.json` is generated from this object by `npm run i18n:keys`.
 
 import { appEn } from './en/app.js'
+import { billingEn } from './en/billing.js'
 import { chromeEn } from './en/chrome.js'
+import { connectionEn } from './en/connection.js'
 import { libEn } from './en/lib.js'
 import { overlaysEn } from './en/overlays.js'
 import { slashEn } from './en/slash.js'
+import { subscriptionEn } from './en/subscription.js'
 
 export const en = {
   ...chromeEn,
   ...overlaysEn,
   ...appEn,
   ...slashEn,
-  ...libEn
+  ...libEn,
+  ...billingEn,
+  ...subscriptionEn,
+  ...connectionEn
 }
 
 /** The sibling catalogs `en` is composed from, for the disjointness test. */
-export const EN_SIBLINGS: readonly Record<string, unknown>[] = [chromeEn, overlaysEn, appEn, slashEn, libEn]
+export const EN_SIBLINGS: readonly Record<string, unknown>[] = [
+  chromeEn,
+  overlaysEn,
+  appEn,
+  slashEn,
+  libEn,
+  billingEn,
+  subscriptionEn,
+  connectionEn
+]

@@ -334,6 +334,23 @@ whose provider is unknown reads `custom`.
 | `hermes.model_friction.count` | provider, model, signal (`retry`, `undo`, `interrupt`, `quick_abandon`, `switch_away`) | Which models users fight with. Attributed to the model that produced the turn: `/retry` and `/undo` where they execute, a user interrupt of an interactive turn, a session that ends within 60 seconds of a failed turn, and `/model` switching away from the model. |
 | `hermes.context_peak.count` | provider, model, peak fill bucket, window bucket (`lt_32k` … `gte_1m`), limit hit (`yes`/`no`) | How close sessions get to each model's context window, and how often they overflow it. One row per closed conversation: the session ids a compression rotation continues it under report once, with the fullest segment; `limit_hit` means a primary call was rejected as too large (context overflow or HTTP 413), the rejections Hermes answers with a forced compression. |
 
+<!-- ---- v5 efficiency ---- -->
+#### Efficiency: turn cost, waste, tool overhead and prompt-cache breaks
+
+Provider and model follow the model-route rules above. A "user turn" is one user
+message through its final reply; Hermes-owned work (background memory/skill review,
+the curator, delegated subagents' own turns) is not a user turn.
+
+| Metric | Dimensions | Question it answers |
+|---|---|---|
+| `hermes.task_cost.count` | provider, model, tokens bucket (`lt_2k` … `gte_1m`, `unknown`), tool calls bucket, API calls bucket (`0` … `51_to_100`, `gte_101`), outcome (`completed`, `interrupted`, `failed`) | What a user turn costs per model. Tokens are prompt (cache reads/writes included) plus completion over the turn's primary calls; `unknown` when the provider reported no usage. One row per interactive turn the user saw end (a session-close abort is not a turn). |
+| `hermes.wasted_tokens.count` | provider, model, reason (`interrupt`, `retry`, `undo`), tokens bucket | How many tokens users throw away. One row per turn an interrupt, `/retry` or `/undo` discarded (`/undo N` counts N turns), attributed to the model that produced that turn; a turn interrupted and then undone counts once. `unknown` when this process never saw the turn (restart, remote host). |
+| `hermes.tool_output_truncation.count` | tool (shipped tool name, else `mcp` / `plugin`), truncated (`yes`/`no`), original size bucket (characters: `lt_1k` … `gte_500k`) | Which tools produce output too large to keep inline. One row per tool result; `yes` when the tool cut its own output (terminal, `execute_code` and MCP head/tail truncation; the size is then the original) or the per-result cap or per-turn budget spilled it to disk. |
+| `hermes.tool_overhead.count` | enabled tool count bucket, tool schema tokens bucket (`0`, `lt_2k` … `gte_40k`), execution surface | What carrying tool definitions costs. One row per closed interactive conversation: the tools it had enabled and Hermes's own estimate of the tokens their definitions add to each request. |
+| `hermes.tool_enabled_unused.count` | toolset (a toolset Hermes ships; MCP servers, plugins and user toolsets read `custom`), used (`yes`/`no`) | Which default toolsets are paid for but never used. One row per enabled toolset per closed interactive conversation (bounded by the shipped toolsets). |
+| `hermes.cache_break.count` | provider, model, cause (`compression`, `model_switch`, `toolset_change`, `system_prompt_rebuild`, `provider_reported_miss`, `cache_expired`) | How often Hermes throws away a warm prompt cache, and why. `compression` is expected; `model_switch`, `toolset_change` (the tool array changed mid-conversation) and `system_prompt_rebuild` (a continuing conversation rebuilt its system prompt instead of replaying the stored bytes) are Hermes-known causes; `provider_reported_miss` is a primary call reading zero cached tokens right after a warm read on the same model with no Hermes-known cause, `cache_expired` the same after at least five idle minutes. A known cause is not counted again as a miss. |
+<!-- ---- end v5 efficiency ---- -->
+
 Local state is written under:
 
 ```text

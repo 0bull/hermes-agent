@@ -99,6 +99,10 @@ gateway:
     exit_code: "exit {code}"
     last_output: ". Last output:\n```\n{tail}\n```"
     rerun_hint: "\nAsk me to rerun it or show the full log."
+    no_credentials: "❌ The background task couldn't start because no AI model sign-in is configured. Use /login, or run `hermes setup` on the host."
+    complete_header: "✅ Background task complete\nPrompt: \"{preview}\"\n\n"
+    no_response: "(No response generated)"
+    failed: "❌ Your background task \"{preview}\" failed before finishing. Send /bg again to retry, or /agents to see what is still running."
 
   btw:
     usage:                 "Usage: /btw <question>\nExample: /btw which file was that error in?\n\nAnswers a quick side question about this conversation without interrupting it. For an independent background task, use /bg <prompt>."
@@ -142,6 +146,7 @@ gateway:
     failed:                "Compression failed: {error}"
     hygiene_timeout: "⚠️ Shortening the conversation history took too long, so I skipped it and kept everything as-is. Run /compress to try again or /new to start fresh."
     hygiene_timeout_doctor_hint: " If this keeps happening, run `hermes doctor` on the host."
+    hygiene_failed: "⚠️ Shortening the conversation history failed, so I kept everything as-is. Run /compress to try again or /new to start fresh. If this keeps happening, run `hermes doctor` on the host."
 
   debug:
     upload_failed:         "✗ Failed to upload debug report: {error}"
@@ -257,6 +262,10 @@ gateway:
     set_global:                "🧠 ✓ Reasoning effort set to `{effort}` (saved to config)\n_(takes effect on next message)_"
     set_global_save_failed:    "🧠 ✓ Reasoning effort set to `{effort}` (session only — config save failed)\n_(takes effect on next message)_"
     set_session:               "🧠 ✓ Reasoning effort set to `{effort}` (session only — add `--global` to persist)\n_(takes effect on next message)_"
+    quote_label_discord: "-# 💭 Reasoning"
+    quote_label_md: "> 💭 **Reasoning:**"
+    more_lines: "\n_... ({count} more lines)_"
+    block: "💭 **Reasoning:**\n```\n{reasoning}\n```\n\n{response}"
 
   reload_mcp:
     cancelled:             "🟡 /reload-mcp cancelled. MCP tools unchanged."
@@ -497,6 +506,7 @@ gateway:
     session_not_found:           "Session not found in database."
     warn_passthrough:            "⚠️ {error}"
     unknown_error: "unknown error"
+    error_prefix: "Error: {error}"
 
 
   exec_approval:
@@ -534,6 +544,7 @@ gateway:
     turn_error_detailed: "Sorry, I encountered an error ({error_type}).\n{error_detail}\nTry again or use /reset to start a fresh session."
     turn_error: "Sorry, I encountered an error."
     context_injection_refused: "Context injection refused."
+    no_home_channel: "📬 No home channel is set for {platform}. A home channel is where Hermes delivers cron job results and cross-platform messages.\n\nType {sethome_cmd} to make this chat your home channel, or ignore to skip."
 
   unauthorized:
     action_notice: "This bot is private and you're not on its allowed list. If you own it, run `hermes pairing approve {platform} <request-id>` on the host (`hermes pairing list` shows the id)."
@@ -552,6 +563,8 @@ gateway:
     question: "❓ {question}"
     answered: "✅ answered: {response}"
     cancelled: "↩️ Clarification cancelled — your message will be handled as a follow-up."
+    expired: "⏳ This prompt expired — please send a new request."
+    native_stream_placeholder: "💬 Waiting for your choice..."
 
   errors:
     rate_limited: "⏱️ The AI model service is rate-limiting requests. Wait a moment, then use /retry."
@@ -571,6 +584,18 @@ gateway:
     stopped_before_finishing: "⚠️ I had to stop before finishing{reason}. Use /retry to try again, or /compress if this conversation has grown very long."
     no_response: "⚠️ Processing completed but no response was generated. This may be a transient error — try sending your message again."
     previous_turn_cleanup: "⚠️ Your message wasn't processed (the previous turn was still being cleaned up). Please send it again."
+    unexpected_silence: "⚠️ The model returned only a silence marker for a message that needed a reply. Try again or rephrase."
+    empty_response_model_label: "The model"
+    hint_auth: " Your sign-in to the AI model service has expired or the API key is wrong. Use /login here, or run `{relogin}` on the host."
+    hint_quota: " Your AI model service balance or quota is used up. Top it up on the service's website, or use /model to switch models."
+    hint_overloaded: " The AI model service is temporarily overloaded. Wait a moment, then use /retry."
+    hint_rate_limited: " You are being rate-limited. Please wait a moment and try again."
+    hint_usage_limit_resets: " Your plan's usage limit has been reached. It resets in ~{hours}h."
+    hint_usage_limit: " Your plan's usage limit has been reached. Please wait until it resets."
+    hint_rejected: " The AI model service rejected the request."
+    generic_failed_with_hint: "⚠️ Something went wrong and I couldn't finish this reply.{hint}\nUse /retry to try again, or /new to start a fresh conversation. Technical details are in the gateway log (`hermes logs`)."
+    history_unavailable: "⚠️ This session's history is temporarily unavailable, so this message was not processed. Ask the operator to inspect state.db, then resend after it is healthy. Use /reset only if you intentionally want to start a new conversation."
+    no_credentials: "⚠️ I couldn't connect to the AI model service, so this message wasn't processed. Use /login to sign in again, or /model to pick a different model. If it keeps failing, run `hermes doctor` on the host."
 
   skills:
     disabled: "The **{name}** skill is installed but disabled.\nEnable it with: `hermes skills config`"
@@ -680,3 +705,40 @@ gateway:
     unsupported_type: "Quick command '/{command}' has unsupported type (supported: 'exec', 'alias')."
     no_target: "Quick command '/{command}' has no target defined."
   unknown_command: "Unknown command `/{command}`. Type /commands to see what's available, or resend without the leading slash to send as a regular message."
+
+  session:
+    auto_reset_notice: "◐ Session reset after being stopped. Conversation history cleared.\nUse /resume to browse and restore a previous session.\n"
+    auto_reset_context_exhausted: "\n\n🔄 Session auto-reset — the conversation exceeded the maximum context size and could not be compressed further. Your next message will start a fresh session."
+    info_model: "◆ Model: `{model}`"
+    info_provider: "◆ Provider: {provider}"
+    info_context: "◆ Context: {tokens} tokens ({source})"
+    info_acting_model: "◆ Acting model (billed for the run): {provider}:{model}"
+    info_endpoint: "◆ Endpoint: {url}"
+
+  proxy:
+    requires_aiohttp: "⚠️ Proxy mode requires aiohttp. Run: {hint}"
+    url_missing: "⚠️ Proxy URL not configured (GATEWAY_PROXY_URL or gateway.proxy_url)"
+    http_error: "⚠️ Proxy error ({status}): {error}"
+    closed_early: "⚠️ Proxy connection closed before the response completed"
+    connection_error: "⚠️ Proxy connection error: {error}"
+    no_response: "(No response from remote agent)"
+
+  progress:
+    status_fallback_long: "still on it"
+    status_fallback_short: "one sec"
+    stuck_warning: "⚠️ I seem to be stuck (no activity for {minutes} min). If nothing happens in the next {remaining} min I'll give up on this task. You can keep waiting, send /stop to cancel it, or /new to start a fresh conversation."
+    timeout_header: "⏱️ Agent inactive for {minutes} min — no tool calls or API responses."
+    timeout_stuck_tool: "The agent appears stuck on tool `{tool}` ({seconds}s since last activity, {progress})."
+    timeout_last_activity: "Last activity: {activity} ({seconds}s ago, {progress}). The agent may have been waiting on an API response."
+    timeout_hint: "To increase the limit, set agent.gateway_timeout in config.yaml (value in seconds, 0 = no limit) and restart the gateway.\nTry again, or use /reset to start fresh."
+    working_heartbeat: "⏳ Working — {minutes} min{detail}"
+    thinking_prefix: "💬 {text}"
+    tool_head: "{emoji} {tool}"
+    tool_verbose: "{emoji} {tool}({keys})\n{args}"
+    tool_preview: "{emoji} {tool}: \"{preview}\""
+    tool_pending: "{emoji} {tool}..."
+    task_status_running: "running"
+    task_status_complete: "complete"
+    task_status_error: "error"
+    task_line: "- {title} - {status}"
+    task_card_title: "Hermes is working"

@@ -3590,6 +3590,7 @@ export const ru = defineLocale({
       pin: 'Закрепить',
       unpin: 'Открепить',
       shiftClickHint: 'Shift-клик по модели, чтобы закрепить',
+      pinShortcut: '⇧ Клик',
       effort: 'Усилия',
       minimal: 'Минимально',
       low: 'Низкое',

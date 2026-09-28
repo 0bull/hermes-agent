@@ -1,7 +1,7 @@
 import { Box, Text, useInput, useStdout } from '@hermes/ink'
 import { useEffect, useState } from 'react'
 
-import { NO_SKILLS_INSTALLED } from '../app/userMessages.js'
+import { noSkillsInstalled } from '../app/userMessages.js'
 import type { GatewayClient } from '../gatewayClient.js'
 import { rpcErrorMessage } from '../lib/rpc.js'
 import type { Theme } from '../theme.js'
@@ -199,7 +199,7 @@ export function SkillsHub({ gw, maxWidth, onClose, t }: SkillsHubProps) {
   if (!cats.length) {
     return (
       <Box flexDirection="column" width={width}>
-        <Text color={t.color.muted}>{NO_SKILLS_INSTALLED}</Text>
+        <Text color={t.color.muted}>{noSkillsInstalled()}</Text>
         <OverlayHint t={t}>Esc/q cancel</OverlayHint>
       </Box>
     )

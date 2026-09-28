@@ -12,14 +12,10 @@ import { penLibraryPathFor } from '../pen-host'
 
 import { documents, events, type PenDocument, type PenDocumentInfo } from './state'
 
-// Seed a brand-new canvas loads before anyone draws. Matches
-// pen-embed-demo's DEFAULT_CONTENT; storage-load resolves to this on first open.
-const DEFAULT_WEB_PEN = JSON.stringify({
-  version: '2.6',
-  children: [
-    { type: 'frame', id: 'frame0', x: 0, y: 0, name: 'Frame', clip: true, width: 800, height: 600, fill: '#FFFFFF', layout: 'none' }
-  ]
-})
+// Seed a brand-new canvas loads before anyone draws: an empty document. (pen-embed-demo
+// seeds an 800×600 starter frame; the agent then places its work beside it via pen's
+// FindEmptySpace, off-screen. Empty, FindEmptySpace lands at the origin — in view.)
+const DEFAULT_WEB_PEN = JSON.stringify({ version: '2.6', children: [] })
 
 function registerDocument(filePath: string, displayName: string): PenDocumentInfo {
   const fileURI = pathToFileURL(filePath).href

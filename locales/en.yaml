@@ -476,3 +476,330 @@ gateway:
     session_db_unavailable_prefix: "Session database not available"
     session_not_found:           "Session not found in database."
     warn_passthrough:            "⚠️ {error}"
+
+  # Exec-approval card wording shared by every button surface (W4 contract). Adapters wrap these
+  # in their own markup (HTML / Markdown) at call time.
+  exec_approval:
+    header:            "Hermes wants to run a command that needs your OK"
+    reason_label:      "Why it was flagged"
+    smart_deny_line:   "Smart DENY: owner override applies to this one operation only."
+    timed_out_notice:  "⌛ Approval timed out after {window} — the command was NOT run. Ask me to try again if you still want it, or raise approvals.timeout in config.yaml."
+    action_once:       "Allow Once"
+    action_session:    "Allow Session"
+    action_always:     "Always Allow"
+    action_deny:       "Deny"
+
+# Platform-adapter chat copy (in-tree plugins/platforms/*). Command NAMES, callback_data tokens,
+# model ids and anything that flows back to the model stay English and are not in here.
+platform:
+  discord:
+    # Exec-approval card / slash-confirm card. Button labels ≤ 80 chars; embed titles ≤ 256.
+    approval:
+      question:                "Do you want Hermes to run this command?"
+      requested_command_label: "Requested command:"
+      confirm_title:           "Confirm"
+      already_resolved:        "This approval has already been resolved~"
+      expired:                 "⌛ Approval expired — command was not run (already timed out or resolved elsewhere)"
+      by_user:                 "{label} by {user}"
+      resolved_once:           "Approved once"
+      resolved_session:        "Approved for session"
+      resolved_always:         "Approved permanently"
+      resolved_deny:           "Denied"
+    slash_confirm:
+      already_resolved:        "This prompt has already been resolved~"
+      approve_once:            "Approve Once"
+      always_approve:          "Always Approve"
+      cancel:                  "Cancel"
+      resolved_once:           "Approved once"
+      resolved_always:         "Always approved"
+      resolved_cancel:         "Cancelled"
+    # Clarify / update prompts (embed titles + content headers + button labels + footers).
+    prompt:
+      truncated_marker:        "... [truncated]"
+      clarify_title:           "Hermes needs your input"
+      clarify_hint_buttons:    "Pick one below, or click ✏️ Other to type a custom answer."
+      clarify_hint_text:       "Reply in this channel with your answer."
+      default_hint:            " (default: {default})"
+      update_title:            "Update Needs Your Input"
+      expired_footer:          "⏱ Prompt expired — no action taken"
+      already_answered:        "Already answered~"
+      affirm:                  "Yes"
+      negate:                  "No"
+      other:                   "✏️ Other (type answer)"
+      clarify_already_answered: "This prompt has already been answered~"
+      answered_by:             "Answered by {user}: {choice}"
+      awaiting_typed:          "Awaiting typed response from {user}…"
+    # Model / choice pickers (select placeholders ≤ 150, option label/description ≤ 100).
+    picker:
+      title:                   "⚙ Model Configuration"
+      select_provider:         "Current model: `{model}`\nProvider: {provider}\n\nSelect a provider:"
+      unknown_model:           "unknown"
+      choice_default_title:    "Choose an option"
+      provider_option:         "{provider} ({count} models)"
+      current:                 "current"
+      provider_placeholder:    "Choose a provider..."
+      cancel:                  "Cancel"
+      model_placeholder:       "Choose a model from {provider}"
+      back:                    "◀ Back"
+      switch_anyway:           "Switch anyway"
+      more_available:          "{count} more available — type `/model <name>` directly"
+      select_model:            "Provider: **{provider}**\nSelect a model:{extra}"
+      already_resolved:        "Already resolved~"
+      switching:               "Switching to `{model}`..."
+      switching_title:         "⚙ Switching Model"
+      switch_error:            "Error switching model: {error}"
+      switched_title:          "⚙ Model Switched"
+      expired_toast:           "Model selection expired."
+      cancelled:               "Model selection cancelled."
+      expired:                 "⏱ Selection expired — no model change."
+      choice_placeholder:      "Choose an option..."
+      choice_error:            "Error applying selection: {error}"
+      choice_expired:          "⏱ Selection expired — no change made."
+    # Native slash commands: description / parameter description / choice name ≤ 100 chars (baked
+    # into Discord at sync time; the sync fingerprint includes the language). Names stay identifiers.
+    command:
+      new:
+        description:           "Start a new conversation"
+        followup:              "New conversation started~"
+      reset:
+        description:           "Reset your Hermes session"
+        followup:              "Session reset~"
+      model:
+        description:           "Show or change the model"
+        arg_name:              "Model name (e.g. anthropic/claude-sonnet-4). Leave empty to see current."
+      reasoning:
+        description:           "Show/change reasoning effort, or toggle showing it"
+        arg_effort:            "Pick a level, reset the override, or show/hide reasoning. Leave empty to see current."
+        choice_none:           "none — disable reasoning"
+        choice_ultra:          "ultra — maximum reasoning"
+        choice_reset:          "reset — clear this session's override"
+        choice_show:           "show — reveal reasoning in replies"
+        choice_hide:           "hide — hide reasoning from replies"
+      personality:
+        description:           "Set a personality"
+        arg_name:              "Personality name. Leave empty to list available."
+      retry:
+        description:           "Retry your last message"
+        followup:              "Retrying~"
+      undo:
+        description:           "Remove the last exchange"
+      status:
+        description:           "Show Hermes session status"
+        followup:              "Status sent~"
+      stop:
+        description:           "Stop the running Hermes agent"
+        followup:              "Stop requested~"
+      steer:
+        description:           "Inject a message after the next tool call (no interrupt)"
+        arg_prompt:            "Text to inject into the agent's next tool result"
+      plan:
+        description:           "Write a markdown implementation plan (no execution)"
+        arg_task:              "What to plan. Leave empty to infer from the conversation."
+      compress:
+        description:           "Compress conversation context"
+      title:
+        description:           "Set or show the session title"
+        arg_name:              "Session title. Leave empty to show current."
+      resume:
+        arg_name:              "Session name to resume. Leave empty to list sessions."
+      usage:
+        description:           "Show token usage for this session"
+      help:
+        description:           "Show available commands"
+      insights:
+        arg_days:              "Number of days to analyze (default: 7)"
+      reload_skills:
+        description:           "Re-scan ~/.hermes/skills/ for new or removed skills"
+      voice:
+        description:           "Toggle voice reply mode"
+        arg_mode:              "Voice mode: join, channel, leave, on, tts, off, or status"
+        choice_join:           "join — join your voice channel"
+        choice_channel:        "channel — join your voice channel (alias)"
+        choice_leave:          "leave — leave voice channel"
+        choice_mode_on:        "on — voice reply to voice messages"
+        choice_tts:            "tts — voice reply to all messages"
+        choice_mode_off:       "off — text only"
+        choice_status:         "status — show current mode"
+      update:
+        followup:              "Update initiated~"
+      restart:
+        description:           "Gracefully restart the Hermes gateway"
+        followup:              "Restart requested~"
+      approve:
+        arg_scope:             "Optional: 'all', 'session', 'always', 'all session', 'all always'"
+      deny:
+        description:           "Deny a pending dangerous command"
+        arg_scope:             "Optional: 'all' to deny all pending commands"
+      thread:
+        description:           "Create a new thread and start a Hermes session in it"
+        arg_name:              "Thread name"
+        arg_message:           "Optional first message to send to Hermes in the thread"
+        arg_auto_archive:      "Auto-archive in minutes (60, 1440, 4320, 10080)"
+        error_unknown:         "unknown error"
+        failed:                "Failed to create thread: {error}"
+        created:               "Created thread {link}"
+        error_name_required:   "Thread name is required."
+        error_invalid_archive: "auto_archive_duration must be one of: {allowed}."
+        error_no_channel:      "Could not resolve the current Discord channel."
+        error_dm_not_supported: "Discord threads can only be created inside server text channels, not DMs."
+        error_no_parent:       "Could not determine a parent text channel for the new thread."
+        error_both_failed:     "Discord rejected direct thread creation and the fallback also failed. Direct error: {direct_error}. Fallback error: {fallback_error}"
+      queue:
+        description:           "Queue a prompt for the next turn (doesn't interrupt)"
+        arg_prompt:            "The prompt to queue"
+        followup:              "Queued for the next turn."
+      bg:
+        arg_prompt:            "The prompt to run in the background"
+        followup:              "Background task started~"
+      btw:
+        description:           "Ask a side question about the current conversation"
+        arg_question:          "The side question to answer without interrupting"
+        followup:              "Side question dispatched~"
+      skill:
+        description:           "Run a Hermes skill"
+        arg_name:              "Which skill to run"
+        arg_args:              "Optional arguments for the skill"
+        unknown:               "Unknown skill: `{name}`. Start typing for autocomplete suggestions."
+      auto_args_description:   "Arguments: {args_hint}"
+      auto_description_fallback: "Run /{name}"
+    limits:
+      response_truncated:      "⚠️ **Response truncated** — this reply exceeded the delivery limit ({max_messages} messages). {dropped_chars} characters were not delivered; the full response is in the session logs."
+    forum:
+      default_title:           "New Post"
+    voice:
+      ack_1:                   "Let me look into that."
+      ack_2:                   "One moment."
+      ack_3:                   "Checking on that now."
+      ack_4:                   "Give me a sec."
+      ack_5:                   "On it."
+      left_inactivity:         "Left voice channel (inactivity timeout)."
+    security:
+      unauthorized_slash_alert: "⚠️ Unauthorized Discord slash attempt\nUser: {user_name} ({user_id})\nChannel: {chan_id} (guild {guild_id})\nCommand: {command_text}\nReason: {reason}"
+    thread:
+      seed_message:            "🧵 Thread created by Hermes: **{name}**"
+      default_name:            "Hermes"
+      handoff_seed:            "🧵 Hermes handoff: **{name}**"
+      auto_create_failed:      "⚠️ Hermes could not create a Discord thread for this message, so the request was not processed. Please retry."
+      auto_create_failed_generic: "The request was not processed. Please retry."
+    media:
+      upload_too_large:        "⚠️ Could not attach `{filename}` — {size_mb} MB exceeds Discord's {limit_mb} MB upload limit for this channel. Compress the file or share a link instead."
+      image_skipped_too_large: "⚠️ Skipped `{filename}` — {size_mb} MB exceeds Discord's {limit_mb} MB upload limit."
+
+  telegram:
+    # Inline-keyboard labels: keep short (2-per-row layout truncates around ~20 chars on mobile).
+    # Every toast (answerCallbackQuery) is cut at 200 chars by the adapter.
+    approval:
+      action_once:             "✅ Allow Once"
+      action_session:          "✅ Session"
+      action_always:           "✅ Always"
+      action_deny:             "❌ Deny"
+      toast_invalid_data:      "Invalid approval data."
+      toast_already_resolved:  "This approval has already been resolved."
+      resolved_once:           "✅ Approved once"
+      resolved_session:        "✅ Approved for session"
+      resolved_always:         "✅ Approved permanently"
+      resolved_deny:           "❌ Denied"
+      resolved_generic:        "Resolved"
+      resolved_by_user:        "{label} by {user}"
+      expired:                 "⌛ Approval expired"
+      expired_detail:          "{label} — no command was waiting. It already timed out (and was denied) or was resolved elsewhere."
+    slash_confirm:
+      approve_once:            "✅ Approve Once"
+      always_approve:          "🔒 Always Approve"
+      cancel:                  "❌ Cancel"
+      already_resolved:        "This prompt has already been resolved."
+      resolved_once:           "✅ Approved once"
+      resolved_always:         "🔒 Always approve"
+      resolved_cancel:         "❌ Cancelled"
+    # Model / choice pickers (MarkdownV2 bodies; the adapter adds the markup around these).
+    picker:
+      expired_rerun:           "Picker expired — run the command again."
+      invalid_selection:       "Invalid selection."
+      expired:                 "Picker expired."
+      apply_error:             "Error applying selection: {error}"
+      prev:                    "◀ Prev"
+      next:                    "Next ▶"
+      back:                    "◀ Back"
+      cancel:                  "✗ Cancel"
+      more_available:          "{count} more available — type `/model <name>` directly"
+      title:                   "Model Configuration"
+      provider_label:          "Provider: {provider}"
+      select_model:            "Select a model:"
+      current_model:           "Current model: {model}"
+      select_provider:         "Select a provider:"
+      unknown_model:           "unknown"
+      provider_family:         "Provider family: {family}"
+      invalid_model_index:     "Invalid model index."
+      switch_error:            "Error switching model: {error}"
+      switch_failed:           "Switch failed."
+      switched:                "Model switched!"
+      invalid_page:            "Invalid page."
+      expired_model:           "Picker expired — use /model again."
+      provider_not_found:      "Provider not found."
+      switch_anyway:           "Switch anyway"
+      confirm_selection:       "Confirm model selection"
+      group_not_found:         "Group not found."
+      cancelled:               "Model selection cancelled."
+    # Update (/update watcher) and clarify prompts.
+    prompt:
+      default_hint:            " (default: {default})"
+      update_header:           "Update needs your input:"
+      affirm:                  "✓ Yes"
+      negate:                  "✗ No"
+      other:                   "✏️ Other (type answer)"
+      expired_toast:           "⚠️ This prompt expired — please /retry."
+      expired_body:            "⚠️ This question expired or the session reset — please /retry."
+      type_answer:             "✏️ Type your answer in the chat."
+      awaiting_typed:          "Awaiting typed response from {user}…"
+      invalid_choice:          "Invalid choice."
+      update_sent:             "Sent '{answer}' to the update process."
+      update_answered:         "Update prompt answered: {answer}"
+      affirm_word:             "Yes"
+      negate_word:             "No"
+    media:
+      download_failed:         "⚠️ Couldn't download your {kind}{name} ({error}). Please try sending it again."
+      named_suffix:            " ({name})"
+      kind_attachment:         "attachment"
+      kind_photo:              "photo"
+      kind_voice:              "voice message"
+      kind_audio:              "audio file"
+      kind_video:              "video file"
+    gmail_triage:
+      done_send:               "✓ sent draft"
+      done_archive:            "✓ archived"
+      done_draft:              "✓ drafted reply"
+      done_spam:               "✓ marked spam"
+      done_mute:               "✓ muted"
+      done_mute_domain:        "✓ muted domain"
+      done_trust:              "✓ trusted"
+      done_trust_domain:       "✓ trusted domain"
+      done_vip:                "✓ marked VIP"
+      done_vip_domain:         "✓ marked VIP domain"
+      invalid_data:            "Invalid gmail-triage data."
+      unknown_verb:            "Unknown verb: {verb}"
+      script_missing:          "❌ {script} missing"
+      exit_code:               "exit {code}"
+      failed:                  "❌ {verb} failed: {detail}"
+      timed_out:               "❌ {verb} timed out"
+      error:                   "❌ {verb} error: {error}"
+      appended_by:             "— {label} by {user}"
+    user_fallback:             "User"
+    install_hint:              "Run `hermes setup` to install Telegram support."
+
+# Slash-command DESCRIPTIONS (names are identifiers and never translated). Owned by lane W1a; the
+# keys below are the ones the Discord native command table shares verbatim with the CLI registry.
+slash:
+  approve:
+    description: "Approve a pending dangerous command"
+  bg:
+    description: "Run a prompt in a separate background session"
+  insights:
+    description: "Show usage insights and analytics"
+  reload_mcp:
+    description: "Reload MCP servers from config"
+  resume:
+    description: "Resume a previously-named session"
+  sethome:
+    description: "Set this chat as the home channel"
+  update:
+    description: "Update Hermes Agent to the latest version"

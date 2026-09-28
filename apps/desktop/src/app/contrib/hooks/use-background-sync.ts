@@ -17,7 +17,7 @@ import { $sidebarShowArchived } from '@/store/layout'
 import { $changeEventsAvailable, $cronChangeTick, $projectsChangeTick, $sessionsChangeTick } from '@/store/live-sync'
 import { $onBattery, batteryPollInterval } from '@/store/power'
 import { refreshActiveProfile } from '@/store/profile'
-import { refreshProjects, refreshProjectTree } from '@/store/projects'
+import { probeProjectsBackendEnabled, refreshProjects, refreshProjectTree } from '@/store/projects'
 import {
   $activeSessionId,
   $busy,
@@ -1006,6 +1006,11 @@ export function useBackgroundSync({
     void refreshCurrentModel()
     void refreshActiveProfile()
     void refreshSessions()
+
+    // The backend's `projects.enabled` decides whether the Projects sidebar
+    // surfaces exist at all — probe it once per connection so the UI can hide
+    // them before the first projects.* call fails (#58588).
+    void probeProjectsBackendEnabled()
 
     // A RELATIVE workspace cwd (config `terminal.cwd: .`) renders as "." in the
     // file tree header — resolve it to the backend's absolute path once.

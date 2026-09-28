@@ -3056,6 +3056,7 @@ export interface Translations {
       removeFromSidebar: string
       createFailed: string
       staleBackend: string
+      disabledByConfig: string
       deleteConfirm: string
       startWork: string
       newWorktreeTitle: string

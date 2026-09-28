@@ -27702,6 +27702,10 @@
             "title": "Session Key",
             "type": "string"
           },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
           "started_at": {
             "title": "Started At",
             "type": "number"
@@ -27722,6 +27726,7 @@
           "model",
           "preview",
           "session_key",
+          "source",
           "started_at",
           "status",
           "title"

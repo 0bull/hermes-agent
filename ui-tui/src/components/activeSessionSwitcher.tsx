@@ -37,6 +37,56 @@ const STATUS_LABEL: Record<string, string> = {
   working: 'working'
 }
 
+// Compact fixed-width source tags. Mirrors the desktop's source vocabulary
+// (apps/desktop/src/lib/session-source.ts); unknown sources degrade to the
+// first 4 characters of the raw id, like `hermes sessions browse`'s column.
+const SOURCE_TAG: Record<string, string> = {
+  acp: 'acp',
+  api_server: 'api',
+  bluebubbles: 'imsg',
+  cli: 'cli',
+  codex: 'cdx',
+  cron: 'cron',
+  desktop: 'dskp',
+  dingtalk: 'dtlk',
+  discord: 'dc',
+  email: 'mail',
+  feishu: 'fs',
+  gateway: 'gtw',
+  homeassistant: 'home',
+  local: 'loc',
+  matrix: 'mtx',
+  mattermost: 'mm',
+  oneshot: '1sh',
+  photon: 'phn',
+  qqbot: 'qq',
+  signal: 'sgn',
+  slack: 'slk',
+  sms: 'sms',
+  telegram: 'tg',
+  tui: 'tui',
+  webhook: 'hook',
+  wecom: 'wec',
+  weixin: 'wx',
+  whatsapp: 'wa',
+  yuanbao: 'yb'
+}
+
+const SOURCE_TAG_WIDTH = Math.max(...Object.values(SOURCE_TAG).map(tag => tag.length))
+
+/** `[tg]`-style row tag; null when the session has no readable source. */
+export const sessionSourceTag = (source: null | string | undefined) => {
+  const id = (source ?? '').trim().toLowerCase()
+
+  if (!id) {
+    return null
+  }
+
+  const tag = SOURCE_TAG[id] ?? id.slice(0, SOURCE_TAG_WIDTH)
+
+  return tag ? `[${tag}]` : null
+}
+
 const CTRL_OFFSET = 96
 
 const shortModel = (model = '') => model.replace(/^.*\//, '') || 'model?'
@@ -718,6 +768,8 @@ export function ActiveSessionSwitcher({
           </Text>
         </Box>
 
+        <Box {...fixedSessionColumnStyle()} width={7} />
+
         <Box {...fixedSessionColumnStyle()} width={18}>
           <Text color={newRowTextColor ?? t.color.muted} wrap="truncate-end">
             {draftModelDisplayLabel(draftModel)}
@@ -771,6 +823,12 @@ export function ActiveSessionSwitcher({
               <Box {...fixedSessionColumnStyle()} width={11}>
                 <Text bold={selected} color={rowTextColor ?? t.color.muted} wrap="truncate-end">
                   {h.id}
+                </Text>
+              </Box>
+
+              <Box {...fixedSessionColumnStyle()} width={7}>
+                <Text color={rowTextColor ?? t.color.muted} wrap="truncate-end">
+                  {sessionSourceTag(h.source) ?? ''}
                 </Text>
               </Box>
 
@@ -829,6 +887,12 @@ export function ActiveSessionSwitcher({
                 wrap="truncate-end"
               >
                 {current ? 'current' : s.id}
+              </Text>
+            </Box>
+
+            <Box {...fixedSessionColumnStyle()} width={7}>
+              <Text color={rowTextColor ?? t.color.muted} wrap="truncate-end">
+                {sessionSourceTag(s.source) ?? ''}
               </Text>
             </Box>
 

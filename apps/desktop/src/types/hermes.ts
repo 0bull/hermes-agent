@@ -473,6 +473,9 @@ export interface HermesConfig {
     repo_scan_enabled?: boolean
     repo_scan_roots?: string[]
     repo_scan_exclude_paths?: string[]
+    composer?: {
+      context_suggestions?: boolean
+    }
   }
   terminal?: {
     cwd?: string

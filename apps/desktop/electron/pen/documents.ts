@@ -37,6 +37,7 @@ function registerDocument(filePath: string, displayName: string): PenDocumentInf
   }
 
   documents.set(doc.docId, doc)
+  events.emit('open-document', describeDocument(doc))
 
   return describeDocument(doc)
 }

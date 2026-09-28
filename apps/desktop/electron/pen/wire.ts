@@ -80,17 +80,12 @@ function wirePenWebviewGuests(opts: { preloadPath: string }): void {
 function wirePenIpc(): void {
   const store = sessionsFile()
 
+  // Renderers clear the reopen pill on open and put the pane away on the last
+  // close. The tie itself is written by `front()` below, which knows the
+  // session an open belongs to — the event fires before that is decided.
   for (const event of ['open-document', 'close-document']) {
     onPenEvent(event, payload => broadcastPenEvent(event, payload))
   }
-
-  onPenEvent('open-document', payload => {
-    const sessionId = payload?.docId ? penDocSessions.get(payload.docId) : null
-
-    if (sessionId) {
-      rememberPenSession(store, sessionId, { docId: payload.docId, path: penDocumentFilePath(payload), closed: false })
-    }
-  })
 
   onPenEvent('close-document', payload => {
     if (payload?.docId) {

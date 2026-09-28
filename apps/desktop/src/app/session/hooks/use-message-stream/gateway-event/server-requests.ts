@@ -26,7 +26,7 @@ import {
   setVaultUnlockRequest
 } from '@/store/prompts'
 import { rememberServerRequest } from '@/store/server-requests'
-import { $sessions, sessionMatchesStoredId } from '@/store/session'
+import { $selectedStoredSessionId, $sessions, sessionMatchesStoredId } from '@/store/session'
 import { $sessionTiles } from '@/store/session-states'
 import { requestScrollToBottom } from '@/store/thread-scroll'
 import { $toursEnabled } from '@/store/tours'
@@ -559,13 +559,18 @@ const tour: Handler = ({ isActiveSession, request }) => {
     )
 }
 
-const penTool: Handler = ({ request, sessionId }) => {
+const penTool: Handler = ({ deps, isActiveSession, request, sessionId }) => {
   // pen_canvas tool: `open` / `close` own the pane; anything else is one of the
   // editor's own MCP tools run against the live canvas. `open` also fetches the
   // editor's current tool list so the agent never works from a stale schema.
   const p = request.params
   const action = str(p.action)
   const args = p.args && typeof p.args === 'object' ? (p.args as Record<string, unknown>) : {}
+  // The request names the RUNTIME session; ties and the pane follow the chat's
+  // STORED id. For the chat on screen that is whatever the pane follows (a
+  // compressed chat keeps the id it navigated to); otherwise its stored id.
+  const storedId = deps.sessionStateByRuntimeIdRef.current.get(sessionId)?.storedSessionId
+  const chatId = (isActiveSession ? $selectedStoredSessionId.get() : null) || storedId || sessionId || null
 
   const run =
     action === 'open'
@@ -574,7 +579,7 @@ const penTool: Handler = ({ request, sessionId }) => {
             name: typeof args.name === 'string' ? args.name : undefined,
             path: typeof args.path === 'string' ? args.path : undefined
           },
-          sessionId || null
+          chatId
         ).then(async doc => {
           if (!doc) {
             return null
@@ -608,7 +613,7 @@ const penTool: Handler = ({ request, sessionId }) => {
                 selector: typeof args.selector === 'string' && args.selector.trim() ? args.selector.trim() : undefined,
                 url: typeof args.url === 'string' && args.url.trim() ? args.url.trim() : undefined
               },
-              sessionId || null
+              chatId
             ).then(
               ({ error, imported, nodes, success, url }) => ({ success, result: { imported, nodes, url }, error }),
               (error: unknown) => ({ success: false, error: error instanceof Error ? error.message : String(error) })

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { hasOpenServerRequest, resetServerRequestsForTests } from '@/store/server-requests'
-import { setActiveSessionId, setSessions } from '@/store/session'
+import { $selectedStoredSessionId, setActiveSessionId, setSessions } from '@/store/session'
 import { $sessionTiles } from '@/store/session-states'
 import { $toursEnabled } from '@/store/tours'
 import type { SessionInfo } from '@/types/hermes'
@@ -11,6 +11,13 @@ import { handleServerRequest, previewSessionRoute, requestNamesActiveSession } f
 import type { ServerRequestContext } from './server-requests'
 
 vi.mock('@/lib/tour', () => ({ runTour: vi.fn(async () => ({ ok: true })) }))
+
+const penStore = vi.hoisted(() => ({
+  openPenCanvas: vi.fn(async (_target: unknown, _sessionId: null | string) => null),
+  runPenTool: vi.fn()
+}))
+
+vi.mock('@/store/pen', () => penStore)
 
 const deps = {
   activeSessionIdRef: { current: null },
@@ -202,6 +209,27 @@ describe('tour request routing', () => {
       deps.sessionStateByRuntimeIdRef.current.clear()
       setSessions([])
     }
+  })
+})
+
+describe('pen canvas request routing', () => {
+  afterEach(() => {
+    deps.sessionStateByRuntimeIdRef.current.clear()
+    $selectedStoredSessionId.set(null)
+    penStore.openPenCanvas.mockClear()
+  })
+
+  it('ties an agent-opened canvas to the chat the pane follows, not the runtime id', async () => {
+    // The request names the runtime session. openPenCanvas seats the tile only
+    // when its tie matches the focused stored id; a runtime id parked the
+    // editor off-screen on the very first "design me …" turn.
+    deps.sessionStateByRuntimeIdRef.current.set('runtime-9', createClientSessionState('stored-9'))
+    $selectedStoredSessionId.set('stored-9')
+
+    deliver('pen.tool', { action: 'open', args: { name: 'Ember' }, session_id: 'runtime-9' }, 'stored-9')
+
+    await vi.waitFor(() => expect(penStore.openPenCanvas).toHaveBeenCalledTimes(1))
+    expect(penStore.openPenCanvas.mock.calls[0][1]).toBe('stored-9')
   })
 })
 

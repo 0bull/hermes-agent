@@ -1988,8 +1988,8 @@ class GatewayTurnMixin:
         if status_code in {400, 500} and len(prepared.history) > 50:
             # Context overflow / payload too large: a deterministic rejection (#107567), and the same
             # no-grow rule as the persist path (#1630) — nothing is written into an oversized session.
-            from gateway.run import _CONTEXT_OVERFLOW_REPLY
-            return _CONTEXT_OVERFLOW_REPLY
+            from gateway.run import _context_overflow_reply
+            return _context_overflow_reply()
         # Replay can coalesce inputs; only this input's durable marker establishes ownership.
         try:
             if prepared.message_text is not None and session_entry is not None:

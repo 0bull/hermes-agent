@@ -28,6 +28,15 @@ approval:
   denied:          "      ✗ Denied"
   cancelled:       "      ✗ Cancelled"
   blocklist_message: "This command is on the unconditional blocklist and cannot be approved."
+  # Typed-reply synonyms (comma-lists). English always matches; a language pack appends its own words.
+  inputs:
+    approve: "approve,yes,ok,okay,confirm,y"
+    deny: "deny,no,reject,cancel,n"
+    always: "always,approve always,always approve"
+    session: "session,approve session,session approve"
+    confirm_once: "approve,approve once,once,yes,ok,confirm"
+    confirm_always: "always,always approve,remember"
+    confirm_cancel: "cancel,nevermind,no,deny"
 
 gateway:
   # Messenger replies to slash commands and implicit state changes.
@@ -85,6 +94,11 @@ gateway:
   background:
     usage:                 "Usage: /bg <prompt>\nExample: /bg Summarize the top HN stories today\n\nRuns the prompt in a separate session. You can keep chatting — the result will appear here when done."
     started:               "🔄 Background task started: \"{preview}\"\nTask ID: {task_id}\nYou can keep chatting — results will appear when done."
+    task_finished: "✅ Background task finished"
+    task_failed: "❌ Background task failed"
+    exit_code: "exit {code}"
+    last_output: ". Last output:\n```\n{tail}\n```"
+    rerun_hint: "\nAsk me to rerun it or show the full log."
 
   btw:
     usage:                 "Usage: /btw <question>\nExample: /btw which file was that error in?\n\nAnswers a quick side question about this conversation without interrupting it. For an independent background task, use /bg <prompt>."
@@ -126,6 +140,8 @@ gateway:
     aux_failed:            "ℹ️ Configured compression model `{model}` failed ({error}). Recovered using your main model — context is intact — but you may want to check `auxiliary.compression.model` in config.yaml."
     turnhold_deferred:     "ℹ️ Context compression deferred — summary still streaming. Continuing without compression this turn."
     failed:                "Compression failed: {error}"
+    hygiene_timeout: "⚠️ Shortening the conversation history took too long, so I skipped it and kept everything as-is. Run /compress to try again or /new to start fresh."
+    hygiene_timeout_doctor_hint: " If this keeps happening, run `hermes doctor` on the host."
 
   debug:
     upload_failed:         "✗ Failed to upload debug report: {error}"
@@ -371,6 +387,7 @@ gateway:
     stopped_pending:       "⚡ Stopped. The agent hadn't started yet — you can continue this session."
     stopped:               "⚡ Stopped. You can continue this session."
     no_active:             "No active task to stop."
+    force_stopped_pending: "⚡ Force-stopped. The agent was still starting — session unlocked."
 
   title:
     db_unavailable:        "Session database not available."
@@ -404,6 +421,8 @@ gateway:
     hermes_cmd_not_found:    "✗ Could not locate the `hermes` command. Hermes is running, but the update command could not find the executable on PATH or via the current Python interpreter. Try running `hermes update` manually in your terminal."
     start_failed:            "✗ Failed to start update: {error}"
     starting:                "☤ Starting Hermes update… I'll stream progress here."
+    reply_failed: "✗ Failed to send response to update process: {error}"
+    reply_sent: "✓ Sent `{label}` to the update process."
 
   usage:
     rate_limits:              "⏱️ **Rate Limits:** {state}"
@@ -466,6 +485,7 @@ gateway:
     label_all:             "TTS (voice reply to all messages)"
     help:                  "{toggle}\n\n**How /voice works**\n• `/voice on` — voice reply when you send a voice message\n• `/voice tts` — voice reply to *every* message\n• `/voice off` — back to text-only replies\n• `/voice status` — show the current mode\n• `/voice` (no argument) — quick toggle between on and off{channels}"
     help_channels:         "\n\n**Live voice channels (Discord)**\n• Join a voice channel first, then `/voice channel` — I'll join, listen, and speak my replies\n• `/voice leave` — disconnect from the voice channel"
+    transcript_echo_short: "🎙️ \"{text}\""
 
   yolo:
     disabled:                   "⚠️ YOLO mode **OFF** for this session — dangerous commands will require approval."
@@ -476,3 +496,187 @@ gateway:
     session_db_unavailable_prefix: "Session database not available"
     session_not_found:           "Session not found in database."
     warn_passthrough:            "⚠️ {error}"
+    unknown_error: "unknown error"
+
+
+  exec_approval:
+    header: "Hermes wants to run a command that needs your OK"
+    reason_label: "Why it was flagged"
+    default_reason: "dangerous command"
+    smart_deny_line: "Smart DENY: owner override applies to this one operation only."
+    smart_deny_heading: "⚠️ **Smart DENY — owner override for one operation:**"
+    timed_out_notice: "⌛ Approval timed out after {window} — the command was NOT run. Ask me to try again if you still want it, or raise approvals.timeout in config.yaml."
+    timed_out_card_body: "{notice}\n```\n{command}\n```"
+    action_once: "Allow Once"
+    action_session: "Allow Session"
+    action_always: "Always Allow"
+    action_deny: "Deny"
+    deadline: "If you don't answer within {window} it will NOT run."
+    text_choice_once: "Reply `{prefix}approve` to run it once"
+    text_choice_session: "`{prefix}approve session` to allow this pattern for the rest of this session"
+    text_choice_always: "`{prefix}approve always` to allow it permanently"
+    text_choice_deny: "`{prefix}deny` to cancel"
+    text_choice_joiner: ", "
+    text_choice_last: ", or {choice}.\n"
+    text_body: "{heading}\n```\n{command}\n```\n{reason_label}: {reason}\n\n"
+
+  notify:
+    media_kind:
+      audio: "audio"
+      video: "video"
+      file: "file"
+      image: "image"
+    media_delivery_failed: "⚠️ Couldn't deliver the {kind} attachment."
+    media_delivery_failed_with_name: "⚠️ Couldn't deliver the {kind} attachment ({file_name})."
+    delivery_failed_retry: "⚠️ Message delivery failed after multiple attempts. Please try again — your request was processed but the response could not be sent."
+    plain_fallback_prefix: "(Response formatting failed, plain text:)\n\n{content}"
+    turn_error_no_details: "no details available"
+    turn_error_detailed: "Sorry, I encountered an error ({error_type}).\n{error_detail}\nTry again or use /reset to start a fresh session."
+    turn_error: "Sorry, I encountered an error."
+    context_injection_refused: "Context injection refused."
+
+  unauthorized:
+    action_notice: "This bot is private and you're not on its allowed list. If you own it, run `hermes pairing approve {platform} <request-id>` on the host (`hermes pairing list` shows the id)."
+    admin_only_can_run: "You can run: "
+    admin_only_whoami_hint: ". Use /whoami for the full list."
+    admin_only_none: "No slash commands are enabled for non-admins on this platform. Ask an admin to add you to allow_admin_from or to set user_allowed_commands."
+    admin_only: "⛔ /{command} is admin-only here. {suffix}"
+
+  picker:
+    page_info: " ({start}–{end} of {total})"
+
+  clarify:
+    hint_single: "Reply with the number, the option text, or your own answer."
+    hint_multi: "Multiple selections allowed — reply with the numbers separated by commas or spaces (e.g. \"1, 3\"), the option text, or your own answer."
+    option_line: "  {index}. {choice}"
+    question: "❓ {question}"
+    answered: "✅ answered: {response}"
+    cancelled: "↩️ Clarification cancelled — your message will be handled as a follow-up."
+
+  errors:
+    rate_limited: "⏱️ The AI model service is rate-limiting requests. Wait a moment, then use /retry."
+    auth_failed: "⚠️ Sign-in to the AI model service failed. Use /login to sign in again, or ask whoever runs this bot to run `hermes doctor` on the host."
+    bad_request: "⚠️ The AI model service rejected this request. Try rephrasing your message, or use /model to switch models."
+    connection_interrupted: "⚠️ The connection to the AI model service was interrupted mid-request — usually transient. Use /retry to try again; if it keeps happening, run `hermes doctor` on the host."
+    unreachable: "⚠️ The AI model service isn't reachable right now — the configured model endpoint is not running or is unreachable. Wait a moment and use /retry; if it persists, run `hermes doctor` on the host."
+    connection_unknown: "⚠️ Hermes could not reach the AI model service (no further detail from the SDK). Use /retry to try again; if it persists, run `hermes doctor` on the host."
+    context_overflow: "⚠️ This conversation has grown too long for me to read all at once. Use /compress to shorten the history, or /new to start a fresh conversation."
+    usage_limit_resets: "⏱️ The AI model service's usage limit is reached; it resets in {window}. Use /retry after that, or /model to switch models."
+    provider_kept_failing: "⚠️ The AI model service kept failing. Use /retry to try again, or /model to switch models. Details are in the gateway log (`hermes logs`)."
+    session_storage_unavailable_disk: "⚠️ Session storage was temporarily unavailable, so this turn was stopped to protect your conversation history. Please check available disk space, then send your message again."
+    session_storage_unavailable: "⚠️ Session storage was temporarily unavailable, so this turn was stopped to protect your conversation history. Your message should already be saved — please send it again in a moment."
+    generic_failed: "⚠️ Something went wrong and I couldn't finish this reply. Use /retry to try again, or /new to start a fresh conversation. Technical details are in the gateway log (`hermes logs`)."
+    interrupted_before_start: "⚠️ Your message was interrupted before processing started (likely by a recent /stop). Please send it again."
+    processing_incomplete: "processing incomplete"
+    stopped_before_finishing: "⚠️ I had to stop before finishing{reason}. Use /retry to try again, or /compress if this conversation has grown very long."
+    no_response: "⚠️ Processing completed but no response was generated. This may be a transient error — try sending your message again."
+    previous_turn_cleanup: "⚠️ Your message wasn't processed (the previous turn was still being cleaned up). Please send it again."
+
+  skills:
+    disabled: "The **{name}** skill is installed but disabled.\nEnable it with: `hermes skills config`"
+    not_installed: "The **{name}** skill is available but not installed.\nInstall it with: `hermes skills install {install_name}`"
+    disabled_for_platform: "The **{name}** skill is disabled for {platform}.\nEnable it with: `hermes skills config`"
+    stacked_disabled: "The **{names}** skill(s) in this stacked invocation are disabled for {platform}.\nEnable them with: `hermes skills config`"
+    stacked_load_failed: "Failed to load stacked skills for /{command}."
+
+  busy:
+    action_restarting: "restarting"
+    action_shutting_down: "shutting down"
+    reject_model: "Agent is running — wait or /stop first, then switch models."
+    reject_codex_runtime: "Agent is running — wait or /stop first, then change runtime."
+    reject_moa: "Agent is running — wait or /stop first, then run /moa."
+    drain_queued: "⏳ Gateway {action} — queued for the next turn after it comes back."
+    drain_rejected: "⏳ Gateway is {action} and is not accepting another turn right now."
+    drain_rejected_new_work: "⏳ Gateway is {action} and is not accepting new work right now."
+    demoted_tail: " — your message is queued for when it finishes (use /stop to cancel everything)."
+    elapsed_min: "{minutes} min elapsed"
+    running_tool: "running: {tool}"
+    ack_detail_wrap: " ({detail})"
+    ack_detail_joiner: ", "
+    ack: "{head}{detail}{tail}"
+    steered_subagents_head: "⏩ Steered into current run and its active subagent(s)"
+    steered_subagents_tail: ". Your message arrives after their next tool call."
+    steered_head: "⏩ Steered into current run"
+    steered_tail: ". Your message arrives after the next tool call."
+    redirected_head: "↪ Redirected current run"
+    redirected_tail: ". I'll adjust using your correction."
+    subagent_working_head: "⏳ Subagent working"
+    compressing_head: "⏳ Compressing context"
+    queued_head: "⏳ Queued for the next turn"
+    queued_tail: ". I'll respond once the current task finishes."
+    interrupting_head: "⚡ Interrupting current task"
+    interrupting_tail: ". I'll respond to your message shortly."
+    slash_rejected: "⏳ Agent is running — `/{command}` can't run mid-turn. Wait for the current response or `/stop` first."
+    reject_goal: "Agent is running — use /goal status / pause / clear / wait mid-run, or /stop before setting a new goal."
+    reject_loop: "Agent is running — use /loop status / pause / stop mid-run, or /stop before setting a new loop."
+    draining_maintenance: "⏳ This agent is draining for a maintenance action and isn't accepting new turns right now. It'll be back in a moment — please resend shortly."
+    another_turn_running: "⏳ Another turn is still running on this session. To protect the transcript, this message was not processed. Wait for the active turn to finish, then resend it."
+
+  pause:
+    resumed: "▶️ Resumed — new work is accepted again."
+    not_paused: "Hermes wasn't paused."
+    reason_suffix: " (reason: {reason})"
+    already_paused: "⏸️ Hermes is already paused{suffix}. Use `/pause off` to resume."
+    paused: "⏸️ Paused{suffix}. New cron/kanban/gateway work is on hold; in-flight work finishes normally. Use `/pause off` to resume."
+
+  queue:
+    usage: "Usage: /queue <prompt>"
+    queued: "Queued for the next turn."
+    queued_depth: " ({depth} queued)"
+
+  steer:
+    usage: "Usage: /steer <prompt>"
+    usage_idle: "Usage: /steer <prompt>  (no agent is running; sending as a normal message)"
+    queued_starting: "Agent still starting — /steer queued for the next turn."
+    queued_no_agent: "No active agent — /steer queued for the next turn."
+    failed: "⚠️ Steer failed: {error}"
+    rejected_empty: "Steer rejected (empty payload)."
+    target_subagents: "run and its active subagent(s)"
+    target_run: "run"
+    queued: "⏩ Steer queued into current {target} — arrives after the next tool call: '{preview}'"
+
+  suggestions:
+    failed: "Suggestions command failed: {error}"
+
+  blueprint:
+    failed: "Cron blueprint command failed: {error}"
+
+  confirm:
+    destructive_prompt: "⚠️ **Confirm /{command}**\n\n{detail}\n\nChoose:\n• **Approve Once** — proceed this time only\n• **Always Approve** — proceed and silence this prompt permanently\n• **Cancel** — keep current conversation\n\n_Text fallback: reply `{prefix}approve`, `{prefix}always`, or `{prefix}cancel`._"
+    destructive_optout: "\n\nℹ️ Future /clear, /new, /reset, and /undo will run without confirmation. Re-enable via `approvals.destructive_slash_confirm: true` in config.yaml."
+    destructive_optout_save_failed: "\n\n⚠️ Could not save that preference (config.yaml is not writable), so /clear, /new, /reset, and /undo will ask again next time. To silence it permanently, set `approvals.destructive_slash_confirm: false` in config.yaml."
+    cancelled: "🟡 /{command} cancelled. Conversation unchanged."
+    detail_new: "This starts a fresh session and discards the current conversation history."
+    detail_undo_one: "This removes the last user/assistant exchange from history."
+    detail_undo_many: "This removes the last {count} user turns from history."
+
+  hooks:
+    command_blocked: "Command `/{command}` was blocked by a hook."
+
+  prompt_command:
+    start_failed: "Could not start /{command} — please try again."
+
+  learn:
+    ack_described: "Learning a skill from what you described…"
+    ack_conversation: "Learning a skill from this conversation…"
+
+  plan:
+    ack_task: "Planning: {task}"
+    ack_conversation: "Planning from this conversation's context…"
+
+  init:
+    start_failed: "Could not start /init — please try again."
+    ack_update: "Updating AGENTS.md from a project scan…"
+    ack_generate: "Generating AGENTS.md from a project scan…"
+
+  moa:
+    prepare_failed: "Failed to prepare MoA turn."
+
+  quick_command:
+    no_output: "Command returned no output."
+    timed_out: "Quick command timed out (30s)."
+    error: "Quick command error: {error}"
+    no_command: "Quick command '/{command}' has no command defined."
+    unsupported_type: "Quick command '/{command}' has unsupported type (supported: 'exec', 'alias')."
+    no_target: "Quick command '/{command}' has no target defined."
+  unknown_command: "Unknown command `/{command}`. Type /commands to see what's available, or resend without the leading slash to send as a regular message."

@@ -16,6 +16,7 @@ import { selectableCardClass } from '@/lib/selectable-card'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import { $backdrop, setBackdrop } from '@/store/backdrop'
+import { $chatTextSize, CHAT_TEXT_SIZES, setChatTextSize } from '@/store/chat-text-size'
 import { $composerPopoutGesturesEnabled, setComposerPopoutGesturesEnabled } from '@/store/composer-popout'
 import { $embedAllowed, $embedMode, clearEmbedAllowed, type EmbedMode, setEmbedMode } from '@/store/embed-consent'
 import {
@@ -425,6 +426,7 @@ export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
   const reasoningCollapsedShadowed = useStore($modeShadowed('reasoningCollapsedByDefault'))
   const interfaceMode = useStore($interfaceMode)
   const sessionListDensity = useStore($sessionListDensity)
+  const chatTextSize = useStore($chatTextSize)
   const tabStripDefault = useStore($tabStripDefault)
   const titlebarAppActionsSide = useStore($titlebarAppActionsSide)
   const zoomPercent = useStore($zoomPercent)
@@ -546,6 +548,8 @@ export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
   ] as const satisfies readonly { id: EmbedMode; label: string }[]
 
   const uiScaleOptions = UI_SCALE_PRESETS.map(preset => ({ id: preset, label: `${preset}%` }))
+
+  const chatTextSizeOptions = CHAT_TEXT_SIZES.map(size => ({ id: size, label: `${size}%` }))
 
   const matchedScalePreset = matchUiScalePreset(zoomPercent)
 
@@ -671,6 +675,22 @@ export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
 
           {show('typography') && (
             <>
+              <ListRow
+                action={
+                  <SegmentedControl
+                    onChange={id => {
+                      triggerHaptic('selection')
+                      setChatTextSize(id)
+                    }}
+                    options={chatTextSizeOptions}
+                    value={chatTextSize}
+                  />
+                }
+                description={a.chatTextSizeDesc}
+                id={settingElementId(ids.chatTextSize)}
+                title={a.chatTextSizeTitle}
+              />
+
               <ListRow
                 action={
                   <SegmentedControl

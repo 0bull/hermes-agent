@@ -964,6 +964,8 @@ export interface Translations {
       chatFontPreview: string
       chatFontSample: string
       chatFontReset: string
+      chatTextSizeTitle: string
+      chatTextSizeDesc: string
       translucencyTitle: string
       translucencyDesc: string
       translucencyGlassDesc: string

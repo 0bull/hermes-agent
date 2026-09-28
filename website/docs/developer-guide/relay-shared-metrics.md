@@ -311,15 +311,17 @@ itself ships.
 | `hermes.platform.health` | platform, event (`connect_ok`/`connect_failed`/`reconnect`/`disconnect`), error class (`auth`/`network`/`rate_limited`/`config`/`other`) | Which messaging platforms fail to connect or drop, and why. Classified from exception types, HTTP statuses and Hermes's own fatal codes, never error text. |
 | `hermes.platform.delivery` | platform, outcome (`sent`/`failed`), failure class (`rate_limited`/`too_long`/`auth`/`network`/`forbidden`/`other`) | How often replies fail to reach the user per platform (one count per logical reply, retries included). |
 | `hermes.gateway.reply_latency` | platform, first-response bucket (`lt_2s` … `gte_60s`) | Time from an accepted inbound message to the first visible reply text (stream first chunk or final message). |
-
-Replies the relay connector carries report the platform the conversation lives
-on (the inbound's platform, else the platform the connector fronts), never
-`relay`; `relay` remains only when neither is known.
 | `hermes.cron.run` | outcome (`success`/`failed`/`missed`/`skipped`), delivery kind (`local`/`platform`/`webhook`/`none`/`other`), duration bucket | Do scheduled jobs run, fail, get skipped by a gate or overlap, or get missed while Hermes was down. Job names, prompts, schedules and targets are never included. |
 | `hermes.startup.latency` | surface (`cli`, `tui`, `desktop_attach`, `gateway_boot`, `serve_boot`), latency bucket (`lt_500ms` … `gte_10s`) | How long each surface takes from launch to usable, so startup regressions show per surface and release. One row per process start: CLI = process start to first rendered prompt (or a `-q` query dispatched; Kanban workers excluded), TUI = Ink process start to gateway ready, Desktop = app start to backend attached, gateway = process start to adapters connected, `hermes serve` = process start to listening. Not counted: a process re-exec'd in place (e.g. `hermes sessions browse` resuming a session) and each dashboard Chat-tab terminal; a TUI/Desktop reconnect to the same backend never re-counts. |
 | `hermes.update.run` | kind, outcome, failed_stage, duration_bucket, from_version_age_bucket, apply_mode | Whether updates succeed, how long they take, where they fail, and how stale the version being updated from was. `hermes update` rows are derived from the final update receipt, once per run (`kind` is `desktop` when Desktop's source-checkout hand-off ran it); a run the pre-update interpreter finishes is parked locally with only these fields, only while collection is on, and counted by the next start; Desktop packaged self-updates (`apply_mode=package`) are reported once by the app, after the restart that applies them. |
 | `hermes.update.stage` | stage, outcome, duration_bucket | Per-stage result and wall time of `hermes update` (plan, snapshot, apply, deps, build, restart, verify), from the receipt's stage timestamps. |
 | `hermes.process.exit` | process_kind, exit_kind, crash_class | How CLI / TUI / gateway / serve / cron-tick processes end (`clean`, `crash` with an exception family only, `killed`, `watchdog`), reported by the next start in the same profile from a local marker. Turns aborted by a turn watchdog also count as `exit_kind=watchdog`. |
+
+Replies the relay connector carries report the platform the conversation lives
+on (the inbound's platform, else the platform the connector fronts), never
+`relay`; `relay` remains only when neither is known. `hermes.platform.health`
+for the relay connector stays `relay`: its one socket fronts several platforms,
+so a connect or drop belongs to none of them alone.
 
 
 <!-- ---- v5 desktop ---- -->
@@ -349,9 +351,10 @@ local database, so each fires once per install however many processes reach it.
 #### Per-model quality, friction and context pressure
 
 Provider and model follow the model-route rules: a provider Hermes ships and its
-model id; custom endpoints, the local-server aliases of `custom` (`ollama`, `local`,
-`vllm`, `llamacpp`, `llama.cpp`) and loopback servers read `custom`, and a model
-whose provider is unknown reads `custom`.
+model id; custom endpoints and the local-server aliases of `custom` (`ollama`,
+`local`, `vllm`, `llamacpp`, `llama-cpp`, `llama.cpp`) read `custom` for both. A
+shipped provider whose endpoint is a loopback server (`lmstudio`) keeps its name,
+but its model reads `custom`. A model whose provider is unknown reads `custom`.
 
 | Metric | Dimensions | Question it answers |
 |---|---|---|
@@ -363,7 +366,8 @@ whose provider is unknown reads `custom`.
 #### Agent-harness accuracy
 
 These tune the agent loop itself. Hermes' own background review and curator
-loops never count; command text, file paths, tool arguments and reply text never
+loops never count; delegated subagents do (their tool calls, loops and replies
+are model behaviour too). Command text, file paths, tool arguments and reply text never
 leave — only the closed values below.
 
 | Metric | Dimensions | Question it answers |
@@ -380,7 +384,9 @@ leave — only the closed values below.
 
 Provider and model follow the model-route rules above. A "user turn" is one user
 message through its final reply; Hermes-owned work (background memory/skill review,
-the curator, delegated subagents' own turns) is not a user turn.
+the curator, delegated subagents' own turns) is not a user turn. `cache_break` and
+`tool_output_truncation` describe model and tool behaviour, so delegated
+subagents count there; background review and the curator never do.
 
 | Metric | Dimensions | Question it answers |
 |---|---|---|

@@ -10,12 +10,17 @@
 // `locales/_keys.tui.json` is generated from this object by `npm run i18n:keys`.
 
 import { appEn } from './en/app.js'
+import { chatBitsEn } from './en/chatBits.js'
 import { chromeEn } from './en/chrome.js'
-import { gatewayMsgEn } from './en/gatewayMsg.js'
+import { gatewayMsgEn } from './en/gatewayMsg.js',
+import { contentEn } from './en/content.js',
+import { hubsEn } from './en/hubs.js'
 import { libEn } from './en/lib.js'
 import { libTextEn } from './en/libText.js'
 import { overlaysEn } from './en/overlays.js'
-import { sessionEn } from './en/session.js'
+import { sessionEn } from './en/session.js',
+import { pickersEn } from './en/pickers.js',
+import { secureEn } from './en/secure.js'
 import { slashEn } from './en/slash.js'
 import { slashCmdEn } from './en/slashCmd.js'
 import { userMessagesEn } from './en/userMessages.js'
@@ -30,7 +35,12 @@ export const en = {
   ...libEn,
   ...sessionEn,
   ...gatewayMsgEn,
-  ...libTextEn
+  ...libTextEn,
+  ...pickersEn,
+  ...hubsEn,
+  ...secureEn,
+  ...contentEn,
+  ...chatBitsEn
 }
 
 /** The sibling catalogs `en` is composed from, for the disjointness test. */
@@ -44,5 +54,10 @@ export const EN_SIBLINGS: readonly Record<string, unknown>[] = [
   libEn,
   sessionEn,
   gatewayMsgEn,
-  libTextEn
+  libTextEn,
+  pickersEn,
+  hubsEn,
+  secureEn,
+  contentEn,
+  chatBitsEn
 ]

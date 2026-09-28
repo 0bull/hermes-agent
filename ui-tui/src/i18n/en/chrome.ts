@@ -1,5 +1,6 @@
 // App shell: status line, composer, keybind hints, banner, dock, transcript rows.
-// Owned namespaces: `status`, `composer`, `hints`, `help`, `banner`, `transcript`, `dock`, `content`.
+// Owned namespaces: `status`, `composer`, `hints`, `help`, `banner`, `transcript`, `dock`.
+// (`content` lives in ./content.ts, chat/transcript bits in ./chatBits.ts.)
 
 export const chromeEn = {
   status: {

@@ -7,7 +7,7 @@ import type { StreamDeltaPayload, SubagentStatus, Usage } from '@hermes/shared/g
 
 import { STARTUP_IMAGE, STARTUP_QUERY } from '../config/env.js'
 import { STREAM_BATCH_MS } from '../config/timing.js'
-import { buildSetupRequiredSections, SETUP_REQUIRED_TITLE } from '../content/setup.js'
+import { buildSetupRequiredSections, setupRequiredTitle } from '../content/setup.js'
 import type {
   AnyGatewayEvent,
   CommandsCatalogResponse,
@@ -1646,7 +1646,7 @@ export function createGatewayEventHandler(ctx: GatewayEventHandlerContext): (ev:
           turnController.pushActivity(message, 'error')
 
           if (NO_PROVIDER_RE.test(message)) {
-            panel(SETUP_REQUIRED_TITLE, buildSetupRequiredSections())
+            panel(setupRequiredTitle(), buildSetupRequiredSections())
             setStatus(t('session.status.setupRequired'))
 
             return

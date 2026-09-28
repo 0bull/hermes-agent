@@ -24,6 +24,26 @@ approval:
     confirm_always: "always,always approve,remember"
     confirm_cancel: "cancel,nevermind,no,deny"
 
+  summary:
+    denied: "You denied this {noun} — it did not run."
+    timeout: "No answer within {window} — the {noun} did not run."
+    notify_failed: "The approval request could not be delivered — the {noun} did not run."
+    cancelled: "The approval prompt was withdrawn or never reached you — the {noun} did not run."
+    blocked: "This {noun} is not allowed in an unattended session — it did not run."
+    default: "This {noun} did not run."
+  noun:
+    command: "command"
+    code: "code"
+    action: "action"
+  # Approval timeout window (tools/approval_context.py format_approval_window): 300 → "5 minutes".
+  window:
+    hour_one: "{count} hour"
+    hour_other: "{count} hours"
+    minute_one: "{count} minute"
+    minute_other: "{count} minutes"
+    second_one: "{count} second"
+    second_other: "{count} seconds"
+
 gateway:
   approval_expired: "⚠️ Approval expired (agent is no longer waiting). Ask the agent to try again."
   draining: "⏳ Draining {count} active agent(s) before restart..."
@@ -49,6 +69,13 @@ gateway:
     usage_switch_model: "`/model <name>` — switch model"
     usage_switch_provider: "`/model <name> --provider <slug>` — switch provider"
     usage_persist: "`/model <name> --global` — persist"
+    err_skew: "This gateway is running code from {boot_rev} but the checkout on disk is now {disk_rev}. Switching models would risk a stale-module crash — restart the gateway to load the new code: hermes gateway restart"
+    err_switch_failed: "Model switch to {model} failed ({error}); staying on {current}."
+    err_config_not_updated: "config.yaml not updated ({error})"
+    err_stale_override: "saved to config.yaml, but the stale session override was not cleared ({error})"
+    next_turn_only: "    (next turn only — restores after one response)"
+    switch_cancelled: "🟡 Model switch cancelled. Current model unchanged ({model})."
+    guard_confirm: "⚠️ **{title}**\n\n{message}\n\n_Text fallback: reply `{prefix}approve` to switch or `{prefix}cancel` to keep the current model._"
   agents:
     header: "🤖 **Active Agents & Tasks**"
     active_agents: "**Active agents:** {count}"
@@ -60,6 +87,11 @@ gateway:
     none: "No active agents or running tasks."
     state_starting: "starting"
     state_running: "running"
+    no_progress: " · no progress {seconds}s"
+    quiet_for: " · quiet {seconds}s"
+    between_turns: "between turns"
+    child_row: "  - child {index}: {calls} api calls · {doing}"
+    active_ago: " · active {seconds}s ago"
   approve:
     no_pending: "No pending command to approve."
     once_singular: "✅ Command approved. The agent is resuming..."
@@ -123,12 +155,16 @@ gateway:
     hygiene_timeout: "⚠️ Shortening the conversation history took too long, so I skipped it and kept everything as-is. Run /compress to try again or /new to start fresh."
     hygiene_timeout_doctor_hint: " If this keeps happening, run `hermes doctor` on the host."
     hygiene_failed: "⚠️ Shortening the conversation history failed, so I kept everything as-is. Run /compress to try again or /new to start fresh. If this keeps happening, run `hermes doctor` on the host."
+    codex_nothing: "🗜️ Nothing to compact: this session runs on the Codex app-server runtime, whose context lives in a Codex-owned thread that only exists while the agent is active. Send a message first, then /compress — or /reset to start fresh."
+    codex_compacted: "🗜️ Codex app-server thread compacted (thread/compact). The transcript mirror is unchanged by design — the app-server now carries the compacted context."
+    codex_incomplete: "⚠️ Codex app-server compaction did not complete — the thread is unchanged. Check the app-server logs, retry /compress, or /reset for a clean session."
   debug:
     upload_failed: "✗ Failed to upload debug report: {error}"
     header: "**Debug report uploaded:**"
     auto_delete: "⏱ Pastes will auto-delete in 6 hours."
     full_logs_hint: "For full log uploads, use `hermes debug share` from the CLI."
     share_hint: "Share these links with the Hermes team for support."
+    report_label: "Report"
   deny:
     stale: "❌ Command denied (approval was stale)."
     no_pending: "No pending command to deny."
@@ -166,6 +202,7 @@ gateway:
     resumed: "▶ Goal resumed: {goal}\nContinuing now — I'll take the next step right away."
     invalid: "Invalid goal: {error}"
     set: "⊙ Goal set ({budget}-turn budget): {goal}\nI'll keep working until the goal is done, you pause/clear it, or the budget is exhausted.\nControls: /goal status · /goal pause · /goal resume · /goal clear"
+    gate_add_admin_only: "⛔ /goal gate add requires an explicitly configured gateway admin (allow_admin_from for DMs, group_allow_admin_from for groups)."
   help:
     header: "📖 **Hermes Commands**\n"
     skill_header: "\n⚡ **Skill Commands** ({count} active):"
@@ -229,9 +266,11 @@ gateway:
     cleared: "🎭 Personality cleared — using base agent behavior.\n_(takes effect on next message)_"
     set_to: "🎭 Personality set to **{name}**\n_(takes effect on next message)_"
     unknown: "Unknown personality: `{name}`\n\nAvailable: {available}"
+    err_config_write: "config write failed"
   profile:
     header: "👤 **Profile:** `{profile}`"
     home: "📂 **Home:** `{home}`"
+    plain: "Profile: {profile}\nHome: {home}"
   reasoning:
     level_default: "medium (default)"
     level_disabled: "none (disabled)"
@@ -312,8 +351,12 @@ gateway:
     resumed_one: "↻ Resumed session **{title}** ({count} message). Conversation restored."
     resumed_many: "↻ Resumed session **{title}** ({count} messages). Conversation restored."
     resumed_no_count: "↻ Resumed session **{title}**. Conversation restored."
+    msg_count_one: " ({count} message)"
+    msg_count_other: " ({count} messages)"
   retry:
     no_previous: "No previous message to retry."
+    unsafe: "Cannot retry that message safely: {error}"
+    failed_unchanged: "Retry failed; transcript was not changed."
   rollback:
     not_enabled: "Checkpoints are not enabled.\nEnable in config.yaml:\n```\ncheckpoints:\n  enabled: true\n```"
     none_found: "No checkpoints found for {cwd}"
@@ -327,9 +370,15 @@ gateway:
     not_enabled: "Checkpoints are not enabled, so there's no session baseline.\nEnable in config.yaml:\n```\ncheckpoints:\n  enabled: true\n```\nPlain /diff still works — it uses git directly."
     no_changes: "No changes."
     failed: "{error}"
+    err_default: "Could not generate diff"
+    more_untracked: "\n... and {count} more"
+    untracked_label: "**Untracked:**"
+    truncated_note: "\n... (truncated — {lines} lines total; use /diff --stat for a summary)"
   set_home:
     save_failed: "Failed to save home channel: {error}"
     success: "✅ Home channel set to **{name}** (ID: {chat_id}).\nCron jobs and cross-platform messages will be delivered here."
+    err_missing_platform: "Missing logical platform"
+    err_relay_unauthenticated: "Relay does not authenticate this logical home target"
   context:
     header: "🧠 **Context Window**"
     model: "Model: `{model}`"
@@ -348,6 +397,32 @@ gateway:
     estimated: "Estimated context: ~{count} tokens across {messages} messages"
     detail_after_first: "_(Full compression and throughput stats available after the first agent response)_"
     no_data: "No context data available yet. Send a message to start a session."
+    category:
+      system_prompt: "System prompt"
+      tool_definitions: "Tool definitions"
+      rules: "Rules"
+      skills: "Skills"
+      mcp: "MCP"
+      subagent_definitions: "Subagent definitions"
+      memory: "Memory"
+      conversation: "Conversation"
+    category_header: "Estimated usage by category"
+    no_data_yet: "  (no data yet — send a message first)"
+    free_space: "Free space"
+    category_row: "{glyph} {label} ~{tokens} tokens ~{pct}%"
+    toolset_row: "  {toolset} {count} tools ~{tokens} tokens"
+    not_available: "n/a"
+    skill_row: "  {name} index ~{index_tokens}  SKILL.md {md_tokens} tokens"
+    and_more: "  … and {count} more"
+    toolsets_title: "Toolsets by schema cost (largest first)"
+    skills_title: "Skills by cost (index = always-on; SKILL.md = cost when loaded)"
+    window_line: "Context window: {mark}{used} / {max} tokens ({mark}{pct}%)"
+    source:
+      local_estimate: "local estimate"
+      provider_usage: "provider usage"
+      provider_usage_plus_estimate: "provider usage + estimated new messages"
+    source_line: "Source: {source}; category counts are local estimates."
+    hint_all: "Use /context all for per-skill and per-toolset costs."
   status:
     header: "📊 **Hermes Gateway Status**"
     matrix_scope_header: "**Matrix scope:**"
@@ -441,6 +516,8 @@ gateway:
     timed_out: "❌ Hermes update timed out after 30 minutes."
     finished_success: "✅ Hermes update finished successfully."
     last_lines: "{msg}\n\nLast lines:\n```\n{tail}\n```"
+    managed_action: "update Hermes Agent"
+    not_applicable: "✗ `hermes update` does not apply to this install ({method}).\nUpdate with: {command}"
   usage:
     rate_limits: "⏱️ **Rate Limits:** {state}"
     header_session: "📊 **Session Token Usage**"
@@ -520,6 +597,11 @@ gateway:
     warn_passthrough: "⚠️ {error}"
     unknown_error: "unknown error"
     error_prefix: "Error: {error}"
+    history_unreadable: "⚠️ I can't read this conversation's history right now (your earlier messages exist but cannot be loaded). Run `hermes doctor --fix` on the host, or use /new to start fresh."
+    agent_running_retry_later: "Agent is running — wait for the turn to finish, then /{command}."
+    none_marker: "(none)"
+    none_value: "none"
+    unknown_value: "unknown"
   exec_approval:
     header: "Hermes wants to run a command that needs your OK"
     reason_label: "Why it was flagged"
@@ -616,7 +698,9 @@ gateway:
     disabled_for_platform: "The **{name}** skill is disabled for {platform}.\nEnable it with: `hermes skills config`"
     stacked_disabled: "The **{names}** skill(s) in this stacked invocation are disabled for {platform}.\nEnable them with: `hermes skills config`"
     stacked_load_failed: "Failed to load stacked skills for /{command}."
-
+    gate_off: "Skill write approval is off (skills.write_approval). Enable it with /skills approval on, then review staged writes here with /skills pending."
+    unknown_subcommand: "Unknown /skills subcommand on this platform. Use: pending, approve <id>, reject <id>, diff <id>, approval <on|off>. (Search/install are CLI-only.)"
+    diff_truncated: "\n… (truncated — full diff in ~/.hermes/pending/skills/{pending_id}.json)"
   busy:
     action_restarting: "restarting"
     action_shutting_down: "shutting down"
@@ -649,7 +733,16 @@ gateway:
     reject_loop: "Agent is running — use /loop status / pause / stop mid-run, or /stop before setting a new loop."
     draining_maintenance: "⏳ This agent is draining for a maintenance action and isn't accepting new turns right now. It'll be back in a moment — please resend shortly."
     another_turn_running: "⏳ Another turn is still running on this session. To protect the transcript, this message was not processed. Wait for the active turn to finish, then resend it."
-
+    behavior_queue_short: "queues for next turn"
+    behavior_queue_long: "Messages will be queued for the next turn while Hermes is busy."
+    behavior_steer_short: "steers into current run (after next tool call)"
+    behavior_steer_long: "Messages will be steered into the current run (after the next tool call)."
+    behavior_interrupt_short: "interrupts current run"
+    behavior_interrupt_long: "Messages will interrupt the current run while Hermes is busy."
+    status: "**Busy input mode: `{mode}`\nMessages while busy: _{behavior}_\nChange with `/busy queue`, `/busy steer`, or `/busy interrupt`."
+    unknown_mode: "Unknown mode `{arg}`. Use `/busy queue`, `/busy steer`, or `/busy interrupt`."
+    save_failed: "Busy input mode could not be saved to config. Mode unchanged."
+    set: "Busy input mode set to **`{mode}`** (saved).\n_{behavior}_"
   pause:
     resumed: "▶️ Resumed — new work is accepted again."
     not_paused: "Hermes wasn't paused."
@@ -777,6 +870,118 @@ gateway:
     db_fts_corrupt: "⚠️ Session database reported a corruption error confined to the search index (FTS5); the message tables are not damaged. Messages may not be persisted until it is repaired: run `hermes {profile_arg}doctor --fix`, then restart the gateway. Do not run recovery tools or restore a backup unless `hermes {profile_arg}doctor` confirms damage."
     db_then_restart: "{action} Then `hermes {profile_arg}gateway restart`."
     db_unavailable: "⚠️ Session database unavailable — messages may not be saved and /resume will be empty. Cause: {cause}. {action}"
+
+  whoami:
+    scope_dm: "DM"
+    scope_group: "group/channel"
+    header: "**You** — {platform} ({scope})\nUser ID: `{user_id}`\n"
+    tier_unrestricted: "Tier: unrestricted (no admin list configured for this scope)\nSlash commands: all available"
+    tier_admin: "Tier: **admin**\nSlash commands: all available"
+    tier_user: "Tier: user\nSlash commands you can run: {commands}"
+
+  platform:
+    usage: "Usage: /platform <list|pause|resume> [name]\n  /platform list — show platform status\n  /platform pause <name> — stop retrying a failing platform\n  /platform resume <name> — re-queue a paused platform"
+    header: "**Gateway platforms**"
+    connected: "Connected: {platforms}"
+    reason_default: "paused"
+    reason_manual: "paused via /platform pause"
+    item_paused: "  · {name} — PAUSED ({reason}). Resume with `/platform resume {name}`."
+    item_retrying: "  · {name} — retrying (attempt {attempts})"
+    none_failed: "Failed/paused: (none)"
+    usage_action: "Usage: /platform {action} <name>"
+    unknown: "Unknown platform: {name}"
+    not_queued_pause: "{name} is not in the retry queue (it's either connected or not enabled)."
+    already_paused: "{name} is already paused."
+    paused: "✓ {name} paused. Resume with `/platform resume {name}` or `hermes gateway restart` to reset."
+    not_queued_resume: "{name} is not in the retry queue — nothing to resume."
+    already_retrying: "{name} is already retrying — no resume needed."
+    resumed: "✓ {name} resumed — retrying on next watcher tick."
+
+  # /bundles: ``*_plain`` variants are the surface-independent executor text (hermes_cli/slash_exec.py),
+  # the others the gateway's markdown rendering.
+  bundles:
+    unavailable: "Bundles subsystem unavailable: {error}"
+    default_desc: "Load {count} skills"
+    none_plain: "No skill bundles installed.\nCreate one with: hermes bundles create <name> --skill <s1> --skill <s2>\nDirectory: {dir}"
+    header_plain: "Skill Bundles ({count} installed):"
+    item_plain: "/{slug} — {desc} ({count} skills)"
+    invoke_hint_plain: "Invoke a bundle with /<slug> to load all its skills."
+    none: "No skill bundles installed.\nCreate one on the host with:\n  `hermes bundles create <name> --skill <s1> --skill <s2>`\nDirectory: `{dir}`"
+    header: "**Skill Bundles** ({count} installed):"
+    item: "• `/{slug}` — {desc} _({count} skills)_"
+    invoke_hint: "Invoke a bundle with `/<slug>` to load all its skills."
+
+  memory:
+    unknown_subcommand: "Unknown /memory subcommand. Use: pending, approve <id>, reject <id>, approval <on|off>."
+
+  approvals:
+    admin_only: "Only gateway admins can change the persistent approval mode."
+
+  heartbeat:
+    unavailable: "Heartbeats unavailable (no session)."
+    paused: "⏸ Heartbeat paused: {prompt}"
+    none_set: "No heartbeat set."
+    no_resume: "No heartbeat to resume."
+    resumed: "▶ Heartbeat resumed (every {interval}): {prompt}"
+    cleared: "✓ Heartbeat cleared."
+    usage: "Usage: /heartbeat every <interval> <prompt>  (e.g. /heartbeat every 10m Check CI)\nAlso: /heartbeat status | pause | resume | clear"
+    interval_too_small: "Interval too small — minimum is {min_seconds}s."
+    prompt_required: "Usage: /heartbeat every <interval> <prompt> — the prompt is required."
+    invalid_prefix: "Invalid heartbeat"
+    set: "♥ Heartbeat set (every {interval}): {prompt}\nFires as a normal turn whenever this session is idle and the interval has elapsed. Lives while the gateway runs — use `hermes cron` for durable schedules."
+
+  refine:
+    unavailable: "Refine unavailable (no session)."
+    nothing_yet: "Nothing to refine yet — send a message first."
+    empty: "Nothing to refine yet — the conversation is empty."
+    start_failed: "/refine failed to start: {error}"
+    focus_suffix: " (focus: {focus})"
+    started: "⚗ Reviewing this conversation in the background{focus_suffix} — any memory/skill updates will be reported when done."
+
+  review:
+    unavailable: "Review unavailable (no session)."
+    nothing_yet: "Nothing to review yet — send a message first."
+    start_failed: "/review failed to start: {error}"
+
+  subgoal:
+    no_goal: "No active goal. Set one with /goal <text>."
+    usage_remove: "Usage: /subgoal remove <n>"
+    remove_not_int: "/subgoal remove: <n> must be an integer (1-based index)."
+    removed: "✓ Removed subgoal {index}: {text}"
+    cleared_one: "✓ Cleared {count} subgoal."
+    cleared_other: "✓ Cleared {count} subgoals."
+    none_to_clear: "No subgoals to clear."
+    added: "✓ Added subgoal {index}: {text}"
+
+  loop:
+    unavailable: "Loops unavailable."
+    no_session: "Loops unavailable (no active session)."
+    goal_defers_note: "\nNote: an active /goal is driving this session — loop wakeups defer until the goal finishes, pauses, or parks."
+
+  save:
+    no_messages: "No stored messages found for this session ({session_id})."
+    no_adapter: "Platform adapter not found to send the document."
+    caption: "Session export: {filename}"
+    complete: "Export complete."
+    failed: "Error exporting session: {error}"
+
+  sessions:
+    usage_search: "Usage: `/sessions search <query>`"
+    all_requires_admin: "_Note: `all` (cross-chat listing) requires a configured admin; showing this chat's sessions only._"
+    title_matching: "Sessions matching “{query}”"
+    title_all: "Sessions"
+    title_named: "Named Sessions"
+
+  codex_runtime:
+    config_load_failed: "❌ Could not load config: {error}"
+
+  topup:
+    header: "💳 **Nous balance**"
+    portal_link: "Manage billing on the portal: {url}"
+    hint: "Top up and manage billing in the browser — your balance updates here after."
+
+  login:
+    free_tier_remaining: "\nSome chats are still on the free tier; use /model in those chats to switch."
 
 platform:
   whatsapp:
@@ -1328,6 +1533,216 @@ slash:
     description: "Set this chat as the home channel"
   update:
     description: "Update Hermes Agent to the latest version"
+  category:
+    session: "Session"
+    configuration: "Configuration"
+    info: "Info"
+    tools_skills: "Tools & Skills"
+    plugins: "Plugins"
+    exit: "Exit"
+    context: "Context"
+    background_automation: "Background & Automation"
+  shared:
+    usage_suffix: "{description} (usage: /{name} {args_hint})"
+    alias_for: "{description} (alias for /{name})"
+    alias_note: " (alias: {aliases})"
+    slack_alias_for: "Alias for /{name} — {description}"
+    plugin_default_desc: "Run /{name}"
+    plugin_command_desc: "Plugin command"
+  hermes:
+    description: "Talk to Hermes or run a subcommand"
+  start:
+    description: "Acknowledge platform start pings without a reply"
+  new:
+    description: "Start a new session (fresh session ID + history)"
+  topic:
+    description: "Enable or inspect Telegram DM topic sessions"
+  clear:
+    description: "Clear screen and start a new session"
+  redraw:
+    description: "Force a full UI repaint (recovers from terminal drift)"
+  history:
+    description: "Show conversation history"
+  save:
+    description: "Export the current conversation (bare /save shows usage)"
+  retry:
+    description: "Retry the last message (resend to agent)"
+  prompt:
+    description: "Compose your next prompt in $EDITOR (markdown), then send it"
+  undo:
+    description: "Back up N user turns and re-prompt (default 1)"
+  title:
+    description: "Set a title for the current session"
+  handoff:
+    description: "Hand off this session to a messaging platform (Telegram, Discord, etc.)"
+  branch:
+    description: "Branch the current session (new thread on Discord/Telegram/Slack/Matrix; --here stays here)"
+  worktree:
+    description: "Show, list, create, or prune isolated git worktrees"
+  compress:
+    description: "Compress conversation context (add 'here [N]' to keep recent N turns; --preview shows what would happen)"
+  rollback:
+    description: "List or restore filesystem checkpoints (restores keep your hand-edits; --all overrides)"
+  snapshot:
+    description: "Create or restore state snapshots of Hermes config/state"
+  export:
+    description: "Export a profile (config, skills, theme) to a shareable archive"
+  import:
+    description: "Import a shared profile archive as a new profile"
+  stop:
+    description: "Kill all running background processes"
+  pause:
+    description: "Pause new work globally (emergency stop); '/pause off' resumes"
+  deny:
+    description: "Deny a pending dangerous command (optionally with a reason)"
+  btw:
+    description: "Ask a side question about the current conversation without interrupting it"
+  agents:
+    description: "Show active agents and running tasks"
+  journey:
+    description: "Open the learning journey timeline"
+  queue:
+    description: "Queue a prompt for the next turn, or list/edit/rm/move/clear queued prompts"
+  steer:
+    description: "Inject a message after the next tool call without interrupting"
+  goal:
+    description: "Set a standing goal Hermes works on across turns until achieved"
+  heartbeat:
+    description: "Set a recurring prompt that re-enters this session when idle"
+  refine:
+    description: "Review this conversation now and save lessons to memory/skills"
+  review:
+    description: "Spawn an independent subagent to review the work just discussed (PR, code, docs)"
+  loop:
+    description: "Re-run a prompt on a recurring interval in this session"
+  plan:
+    description: "Write a markdown implementation plan to .hermes/plans/ without executing anything"
+  moa:
+    description: "Run one prompt through the default Mixture of Agents preset, then restore your model"
+  subgoal:
+    description: "Add or manage extra criteria on the active goal"
+  status:
+    description: "Show session, model, token, and context info"
+  egress:
+    description: "Show Docker egress proxy status"
+  context:
+    description: "Show detailed context window view with usage gauge, category breakdown, compression stats, and throughput"
+  whoami:
+    description: "Show your slash command access (admin / user)"
+  profile:
+    description: "Show active profile name and home directory"
+  sessions:
+    description: "Browse and resume previous sessions"
+  config:
+    description: "Show current configuration"
+  model:
+    description: "Switch model (session-scoped; --global to persist)"
+  codex-runtime:
+    description: "Toggle codex app-server runtime for OpenAI/Codex models"
+  personality:
+    description: "Set a predefined personality"
+  statusbar:
+    description: "Toggle the context/model status bar"
+  battery:
+    description: "Toggle a color-coded battery indicator in the status bar"
+  timestamps:
+    description: "Toggle [HH:MM] timestamps on messages and /history"
+  diff:
+    description: "Show git changes in the working directory"
+  verbose:
+    description: "Cycle tool progress display: off -> new -> all -> verbose"
+  focus:
+    description: "Toggle focus view — show only your prompt and the final response"
+  footer:
+    description: "Toggle gateway runtime-metadata footer on final replies"
+  yolo:
+    description: "Toggle YOLO mode (skip all dangerous command approvals)"
+  approvals:
+    description: "Show or set the persistent dangerous-command approval mode"
+  reasoning:
+    description: "Manage reasoning effort and display"
+  fast:
+    description: "Fast mode — OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold)"
+  skin:
+    description: "Show or change the display skin/theme"
+  indicator:
+    description: "Pick the TUI busy-indicator style"
+  voice:
+    description: "Toggle voice mode"
+  wake:
+    description: "Toggle the 'Hey Hermes' wake word listener"
+  busy:
+    description: "Control how messages behave while Hermes is working"
+  tools:
+    description: "Manage tools: /tools [list|disable|enable] [name...]"
+  toolsets:
+    description: "List available toolsets"
+  skills:
+    description: "Search, install, inspect, or manage skills"
+  memory:
+    description: "Review pending memory writes / toggle the approval gate"
+  bundles:
+    description: "List skill bundles (aliases /<name> for multiple skills)"
+  pet:
+    description: "Toggle or adopt a petdex mascot (/pet, /pet list, /pet <slug>)"
+  hatch:
+    description: "Generate a new petdex pet from a description"
+  learn:
+    description: "Learn a reusable skill from anything you describe (dirs, URLs, this chat, notes)"
+  init:
+    description: "Generate or update AGENTS.md project instructions from a repo scan"
+  cron:
+    description: "Manage scheduled tasks"
+  suggestions:
+    description: "Review suggested automations (accept/dismiss)"
+  blueprint:
+    description: "Set up an automation from a blueprint template"
+  curator:
+    description: "Background skill maintenance (status, run, pin, archive, list-archived)"
+  kanban:
+    description: "Multi-profile collaboration board (tasks, links, comments)"
+  reload:
+    description: "Reload .env variables into the running session"
+  reload-mcp:
+    description: "Reload MCP servers from config"
+  reload-skills:
+    description: "Re-scan ~/.hermes/skills/ for newly installed or removed skills"
+  browser:
+    description: "Connect browser tools to your live Chromium-family browser via CDP, or switch to Browser Use mode"
+  plugins:
+    description: "List installed plugins and their status"
+  commands:
+    description: "Browse all commands and skills (paginated)"
+  help:
+    description: "Show available commands (/help skills lists skill commands, /help <text> filters)"
+  palette:
+    description: "Open the fuzzy command palette (also Ctrl+P)"
+  restart:
+    description: "Gracefully restart the gateway after draining active runs"
+  usage:
+    description: "Show token usage and rate limits; `reset` redeems a banked Codex limit reset"
+  subscription:
+    description: "View your Nous plan and change it in the browser"
+  login:
+    description: "Sign in with a Nous account (keeps your connectors)"
+  topup:
+    description: "Show your Nous balance and manage billing on the portal"
+  platforms:
+    description: "Show gateway/messaging platform status"
+  platform:
+    description: "Pause, resume, or list a failing gateway platform"
+  copy:
+    description: "Copy the last assistant response to clipboard"
+  paste:
+    description: "Attach clipboard image from your clipboard"
+  image:
+    description: "Attach a local image file for your next prompt"
+  version:
+    description: "Show Hermes Agent version"
+  debug:
+    description: "Upload debug report (system info + logs) and get shareable links"
+  quit:
+    description: "Exit the CLI (use --delete to also remove session history)"
 cli:
   billing:
     # shared helpers (/topup + /subscription)
@@ -2748,3 +3163,197 @@ cli:
       usage: "Usage: /wake [on|off|status]"
       enabled_in_config: "Wake word enabled in config (wake_word.enabled: true)."
       disabled_in_config: "Wake word disabled in config (wake_word.enabled: false)."
+display:
+  # Tool verbs, spinner/progress text, completion rows and failure suffixes (agent/display.py).
+  # ``verb.<tool>`` is resolved at call time by get_tool_verb(); the connector joins verb + preview.
+  verb:
+    web_search: "Searching the web"
+    web_extract: "Reading"
+    browser_navigate: "Browsing"
+    browser_click: "Clicking"
+    browser_type: "Typing"
+    read_file: "Reading"
+    write_file: "Writing"
+    patch: "Editing"
+    search_files: "Searching files"
+    terminal: "Running"
+    execute_code: "Running code"
+    image_generate: "Generating image"
+    video_generate: "Generating video"
+    text_to_speech: "Generating speech"
+    vision_analyze: "Looking at the image"
+    session_search: "Searching past sessions"
+    skill_view: "Reading skill"
+    skills_list: "Listing skills"
+    skill_manage: "Updating skill"
+    delegate_task: "Delegating"
+    cronjob_manage: "Scheduling"
+    clarify: "Asking"
+    memory: "Updating memory"
+    todo_list: "Updating tasks"
+  verb_connector:
+    search: " for "
+    default: " "
+  bridge_generating:
+    tool_call: "a tool call"
+    tool_search: "a tool search"
+    tool_describe: "tool details"
+  status_phrase:
+    verb: "is {verb}"
+    using_tool: "is using {tool}"
+  preview:
+    shell_plus_one: "{first} + {count} command"
+    shell_plus_many: "{first} + {count} commands"
+    delegate_tasks: "{count} tasks: {goals}"
+    delegate_parallel_tasks: "{count} parallel tasks"
+    todo_verb_updating: "updating"
+    todo_verb_planning: "planning"
+    todo_reading: "reading task list"
+    todo_tasks: "{verb} {count} task(s)"
+    missing_old_text: "<missing old_text>"
+    send_message_to: "to {target}: \"{message}\""
+    session_search_recall: "recall: \"{query}\""
+  diff:
+    review_header: "  ┊ review diff"
+    omitted_lines: "… omitted {count} diff line(s)"
+    omitted_files: " across {count} additional file(s)/section(s)"
+  # Comma-separated; a skin's spinner.thinking_verbs wins over this list.
+  thinking_verbs: "pondering,contemplating,musing,cogitating,ruminating,deliberating,mulling,reflecting,processing,reasoning,analyzing,computing,synthesizing,formulating,brainstorming"
+  spinner:
+    tool_line: "  [tool] {message}"
+    done_line: "  [done] {message}{elapsed}"
+  failure:
+    file_not_found: "File not found: {name}"
+    terminal_backend_unavailable: "terminal backend unavailable"
+    exit_code: " [exit {code}]"
+    memory_full: " [full]"
+    generic: " [error]"
+    generic_word: "error"
+  # Completion rows: "┊ {emoji} {verb:9} {detail}" -- verbs are padded to 9 cells by the renderer.
+  cute:
+    verb:
+      search: "search"
+      fetch: "fetch"
+      terminal: "$"
+      read: "read"
+      write: "write"
+      patch: "patch"
+      find: "find"
+      grep: "grep"
+      navigate: "navigate"
+      snapshot: "snapshot"
+      click: "click"
+      type: "type"
+      scroll: "scroll"
+      back: "back"
+      press: "press"
+      images: "images"
+      vision: "vision"
+      plan: "plan"
+      recall: "recall"
+      memory: "memory"
+      skills: "skills"
+      skill: "skill"
+      create: "create"
+      speak: "speak"
+      send: "send"
+      cron: "cron"
+      exec: "exec"
+      browser: "browser"
+      delegate: "delegate"
+      proc: "proc"
+    fetch_pages: "pages"
+    todo_progress: "{done}/{total} task(s)"
+    todo_reading: "reading tasks"
+    todo_update_progress: "update {done}/{total} ✓"
+    todo_update_count: "update {count} task(s)"
+    todo_count: "{count} task(s)"
+    cron_task_fallback: "task"
+    cron_create: "create {label}"
+    cron_listing: "listing"
+    delegate_parallel: "parallel"
+    process_list: "ls processes"
+    snapshot_full: "full"
+    snapshot_compact: "compact"
+    images_extracting: "extracting"
+    vision_analyzing_page: "analyzing page"
+    skills_list: "list {category}"
+    skills_all: "all"
+    scroll:
+      up: "up"
+      down: "down"
+      left: "left"
+      right: "right"
+    fallback_tool_name: "tool"
+    fallback_done: "done"
+    completed: "┊ ⚡ {tool} completed  {duration}"
+  # Busy acks / heartbeats (agent/session_activity.py).
+  iteration_progress:
+    unbounded: "iteration {n}"
+    bounded: "iteration {n}/{max}"
+  # Self-improvement review summaries (agent/background_review.py).
+  review:
+    routing_fallback_warning: "⚠ auxiliary.background_review.provider='{task_provider}' (model '{task_model}') could not be routed ({error}); falling back to {provider}/{model}"
+    reasoning_effort_warning: "⚠ auxiliary.background_review.reasoning_effort='{effort}' has no effect while the review model is not the main model"
+    memory_op_line: "{label} {glyph} {preview}"
+    skill_patched_verbose: "📝 Skill '{name}' patched: \"{old}\" → \"{new}\""
+    skill_changed_verbose: "📝 Skill '{name}' {verb}: {description}"
+    skill_message_verbose: "📝 {message}"
+    skill_action: "Skill {action}"
+    label_updated: "{label} updated"
+    skill_result: "Skill '{name}' {verb}{path}"
+    skill_verb:
+      created: "created"
+      rewritten: "rewritten"
+      patched: "patched"
+      written: "written"
+      removed: "removed"
+      deleted: "deleted"
+    label:
+      skill: "Skill"
+      memory: "Memory"
+      user: "User profile"
+    summary_cli: "  💾 Self-improvement review: {summary}"
+    summary_callback: "💾 Self-improvement review: {summary}"
+    aux_failure_label: "background review"
+  notice:
+    uncompressed_context_overflow: "⚠️ Session context (~{tokens} tokens) exceeds the model context window (~{context_length} tokens) and compression is unavailable; the request may fail."
+
+explainer:
+  # Turn-completion explanations and file-mutation footers (agent/turn_explainers.py). Appended to
+  # the human-facing reply after the transcript row is written; the model never sees them.
+  no_reply_prefix: "⚠️ No reply: "
+  empty_response: "{model} didn't produce a reply this time, even after retries. Send `continue` to try again, or switch models with /model."
+  exit:
+    all_retries_exhausted_no_response: "the model provider didn't answer after all retries. Send /retry, or switch models with /model."
+    partial_stream_recovery: "streaming stopped early and only a partial response was recovered. Send `continue` to resume from where it stopped."
+    fallback_prior_turn_content: "no new content was produced this turn; showing recovered prior context. Send `continue` to retry."
+    redirect_restart_limit_exceeded: "the request was cancelled by a new correction on every attempt, so the turn stopped instead of retrying forever. Your last correction is queued as the next message."
+    rebuilt_restart_limit_exceeded: "every provider in the fallback chain kept failing over, so the turn stopped instead of retrying forever. Send `continue` or switch provider."
+    budget_exhausted: "the per-turn iteration/cost budget was exhausted before a final answer. Send `continue` to keep going."
+    ollama_runtime_context_too_small: "the local model's context window was too small to finish. Increase the context size or use a larger model."
+    pending_tool_result: "the turn stopped while a tool result was still pending and the model produced no follow-up text. Send `continue` to let it summarize."
+    interrupted_during_api_call: "the request was interrupted mid-call before a reply was received. Send `continue` to retry."
+    max_iterations_reached: "the maximum tool-iteration limit was reached before a final answer. Send `continue` to keep going, or raise `max_iterations`."
+    error_near_max_iterations: "an error occurred near the iteration limit before a final answer. Check the tool output above, then send `continue`."
+    repeated_outer_errors: "the turn kept failing with repeated errors and was stopped early instead of retrying forever. Check the errors above, then send `continue` to retry."
+  persistence:
+    compression: "the turn was stopped because another process was compressing this session. Your message should already be saved — please send it again after compression completes."
+    compression_closed: "the turn was stopped because this session was rotated by context compression and its live continuation could not be adopted. The storage itself is healthy — refresh the client (or start a new turn) so it picks up the new session id, then send your message again."
+    turn_lease: "the turn was stopped because another Hermes process took over this session. Your reply was not saved — wait for the other process to finish, then send your message again."
+    session_row_missing: "this session was deleted from storage while the chat was still open, and Hermes could not recreate it, so this message was not saved. Send your message again; if it keeps failing, run `hermes {profile_arg}doctor`."
+    locked: "the turn was stopped because session storage was busy (another Hermes process was writing to the state database). Your message should already be saved — please send it again in a moment."
+    replaced: "the session database file was replaced while Hermes was running, so this message was not saved (a copy is kept in {home}/sessions/). Stop Hermes (`hermes {profile_arg}gateway stop`), run `hermes {profile_arg}doctor` — not `hermes {profile_arg}doctor --fix`, which would repair the wrong file in place — then start it again and send your message once more. Advanced recovery steps are in the log."
+    deleted_wal: "another Hermes process still holds an old copy of the session database's write-ahead log, so Hermes stopped writing to keep the file safe and this message was not saved (a copy is kept in {home}/sessions/). Nothing is lost. Quit every Hermes process on this profile (Desktop app, `hermes {profile_arg}gateway stop`, dashboard, cron), run `hermes {profile_arg}doctor` — it names any process still holding the log — then start Hermes again and send your message once more. Do not run `doctor --fix` or delete any state.db files while they run. Guide: {recovery_docs}"
+    corrupt: "the turn was stopped because the state database reported structural corruption (the transcript would have been lost on restart). Freeing disk space will not help. Recovery options:\n1. Run `hermes {profile_arg}doctor --fix`\n2. Stop the gateway, then recover with:\n   hermes {profile_arg}sessions recover --source {db_path} --inspect-only\n   (if it reports recoverable) hermes {profile_arg}sessions recover --source {db_path} --output recovered-state.db\n   — recovery snapshots the damaged file first; do NOT run `sqlite3 ... \".recover\"` against the live state.db, a vulnerable sqlite3 CLI can corrupt it further\n3. Restore from a backup in {backups_dir}/\nThen send your message again."
+    fts_index: "the turn was stopped because the session search index (FTS5) is corrupt and could not be detached, so this message was not saved. The message store itself is not damaged: do not run recovery tools or restore a backup. Run `hermes {profile_arg}doctor --fix` (or restart Hermes, which repairs the index on open), then send your message again."
+    disk: "Hermes couldn't save this conversation to disk, so it stopped rather than lose your messages. The disk is probably full: free some space (or fix the permissions on {home}/state.db), then send your message again."
+    default: "Hermes couldn't save this conversation, so it stopped rather than lose your messages. Possible causes: the drive is out of room, or another Hermes process is holding the database. Close other Hermes windows, run `hermes {profile_arg}doctor` to check storage, then send your message again."
+  file_mutation:
+    header: "⚠️ File-mutation verifier: {count} file edit(s) FAILED this turn despite any wording above that may suggest otherwise. Run `git status` or `read_file` to confirm what actually landed."
+    entry: "  • `{path}` — [{tool}] {preview}"
+    failed: "failed"
+  shared:
+    and_more: "  • … and {count} more"
+    the_model: "The model"
+

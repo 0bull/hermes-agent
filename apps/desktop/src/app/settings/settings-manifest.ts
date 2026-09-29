@@ -60,6 +60,11 @@ export const SETTINGS_MANIFEST = {
     },
     introSplash: appearanceSetting('general', ['splash', 'wordmark', 'empty chat', 'new chat'], 'introSplash'),
     modelPricing: appearanceSetting('general', ['price', 'cost', 'tokens', 'model picker', 'cache'], 'modelPricing'),
+    reducedEffects: appearanceSetting(
+      'general',
+      ['motion', 'animation', 'effects', 'gpu', 'reduced', 'shimmer', 'compositor'],
+      'effects'
+    ),
     resumeLastSession: appearanceSetting(
       'general',
       ['resume', 'reopen', 'launch', 'startup', 'last chat', 'session'],

@@ -32,6 +32,7 @@ import { notifyError } from '@/store/notifications'
 import { $activeGatewayProfile, $profiles, normalizeProfileKey } from '@/store/profile'
 import { $reactionsEnabled, setReactionsEnabled } from '@/store/reactions-enabled'
 import { $reasoningCollapsedByDefault, setReasoningCollapsedByDefault } from '@/store/reasoning-disclosure'
+import { $reducedEffects, setReducedEffects } from '@/store/reduced-effects'
 import { $sessionListDensity, type SessionListDensity, setSessionListDensity } from '@/store/session-list-density'
 import { $tabStripDefault, setTabStripDefault, type TabStripDefault } from '@/store/tabstrip-prefs'
 import { $textDirection, setTextDirection, TEXT_DIRECTIONS, type TextDirection } from '@/store/text-direction'
@@ -439,6 +440,7 @@ export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
   const userBubbleTransparency = useStore($userBubbleTransparency)
   const textDirection = useStore($textDirection)
   const reactionsEnabled = useStore($reactionsEnabled)
+  const reducedEffects = useStore($reducedEffects)
   const tipsEnabled = useStore($tipsEnabled)
   const toursEnabled = useStore($toursEnabled)
   const spentTips = useStore($spentTipCount)
@@ -936,6 +938,27 @@ export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
               id={settingElementId(ids.modelPricing)}
               label={a.modelPricingTitle}
               onChange={setShowModelPricing}
+            />
+          )}
+
+          {show('general') && (
+            <ListRow
+              action={
+                <SegmentedControl
+                  onChange={id => {
+                    triggerHaptic('selection')
+                    setReducedEffects(id === 'reduced')
+                  }}
+                  options={[
+                    { id: 'full', label: a.effectsFull },
+                    { id: 'reduced', label: a.effectsReduced }
+                  ]}
+                  value={reducedEffects ? 'reduced' : 'full'}
+                />
+              }
+              description={a.effectsDesc}
+              id={settingElementId(ids.reducedEffects)}
+              title={a.effectsTitle}
             />
           )}
 

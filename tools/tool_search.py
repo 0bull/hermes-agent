@@ -50,10 +50,12 @@ class ToolSearchConfig:
     listing_max_tokens: int = 4000  # budget = min(this, threshold_pct% of context)
     # None = curated default; an explicit list replaces it wholesale ([] = defer no core tools).
     defer_tools: Optional[frozenset] = None
+    undefer_tools: frozenset = frozenset()
 
     @property
     def effective_defer_tools(self) -> frozenset:
-        return _DEFAULT_DEFERRED_TOOLS if self.defer_tools is None else self.defer_tools
+        return (_DEFAULT_DEFERRED_TOOLS if self.defer_tools is None
+                else self.defer_tools) - self.undefer_tools
 
     @classmethod
     def from_raw(cls, raw: Any) -> "ToolSearchConfig":
@@ -71,6 +73,12 @@ class ToolSearchConfig:
                 "(e.g. [todo_list, computer_use]; [] keeps every tool eager) - "
                 "using the curated default set.", defer_raw)
             defer_raw = None
+        undefer_raw = raw.get("undefer")
+        if undefer_raw is not None and not isinstance(undefer_raw, (list, tuple, set)):
+            logger.warning(
+                "tools.tool_search.undefer is %r, expected a YAML list of tool names "
+                "(e.g. [apply_layout]) - un-deferring nothing.", undefer_raw)
+            undefer_raw = None
         return cls(
             enabled=_tri_state(raw.get("enabled", "auto")),
             threshold_pct=max(0.0, min(100.0, _safe_float(raw.get("threshold_pct"), 5.0))),
@@ -80,7 +88,8 @@ class ToolSearchConfig:
             listing=_tri_state(raw.get("listing", "auto")),
             listing_max_tokens=_clamped_int(raw.get("listing_max_tokens"), 4000, 200, 60000),
             defer_tools=(frozenset(str(n).strip() for n in defer_raw if str(n).strip())
-                         if isinstance(defer_raw, (list, tuple, set)) else None))
+                         if isinstance(defer_raw, (list, tuple, set)) else None),
+            undefer_tools=frozenset(str(n).strip() for n in undefer_raw or () if str(n).strip()))
 
 
 _TRI_STATE_ALIASES = {"true": "on", "1": "on", "yes": "on", "false": "off", "0": "off", "no": "off"}

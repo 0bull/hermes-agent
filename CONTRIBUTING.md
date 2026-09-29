@@ -128,6 +128,13 @@ source ./activate
 hermes --version
 ```
 
+fish:
+
+```fish
+source ./activate.fish
+hermes --version
+```
+
 PowerShell:
 
 ```powershell
@@ -141,6 +148,9 @@ outside the worktree. PM activation
 syncs tools and Python dependencies before adding them to the shell. It does not
 install JS workspaces or rewrite launchers and shell configuration. `deactivate`
 restores the prior shell environment and removes the function.
+
+To run one command in the environment without activating a shell, use
+`scripts/run-in-hermes-env CMD...`.
 
 ### Manual development and test environment
 

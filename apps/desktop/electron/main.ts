@@ -253,9 +253,9 @@ import {
   performFindAfterIndexingStarted,
   stopFind
 } from './find-in-page'
-import { partitionIdleReapable } from './pool-reaper'
 import { createFirstRunSetupGate } from './first-run-setup-gate'
 import { registerFsIpc } from './fs-ipc'
+import { partitionIdleReapable } from './pool-reaper'
 import type {
   GatewayFileSaveContext,
   GatewayFileSaveDeps,

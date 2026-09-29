@@ -10,6 +10,7 @@ import { useStoreSelector } from '@/lib/use-session-slice'
 import { $hideThreadTimeline } from '@/store/thread-timeline'
 
 import { messageContentText } from './content'
+import { activeRailIndex, measureRailOffsets, RAIL_FOLD_SLACK } from './rail-active-index'
 import {
   deriveTimelineEntries,
   EARLIER_TIMELINE_ID,
@@ -248,6 +249,27 @@ const ActiveThreadTimeline: FC = () => {
     let frame = 0
     const indexes = new Map(railEntries.map((entry, index) => [entry.id, index]))
 
+    // Turn positions in the viewport's content space are invariant under a pure
+    // scroll, so measure once per geometry change and let scroll frames read
+    // the cache — never getBoundingClientRect per frame.
+    let offsets = measureRailOffsets(viewport, indexes)
+    let measuring = false
+
+    const remeasure = () => {
+      // Coalesce bursts of mutations into one layout pass per frame.
+      if (measuring) {
+        return
+      }
+
+      measuring = true
+      frame = requestAnimationFrame(() => {
+        measuring = false
+        frame = 0
+        offsets = measureRailOffsets(viewport, indexes)
+        compute()
+      })
+    }
+
     const compute = () => {
       frame = 0
 
@@ -257,45 +279,26 @@ const ActiveThreadTimeline: FC = () => {
         return
       }
 
-      const top = viewport.getBoundingClientRect().top
-      let first = -1
-      let active = -1
-
-      // Walk only mounted messages, never every archived prompt in the rail.
-      for (const node of viewport.querySelectorAll<HTMLElement>('[data-message-id]')) {
-        const index = indexes.get(node.dataset.messageId!)
-
-        if (index === undefined) {
-          continue
-        }
-
-        if (first === -1) {
-          first = index
-        }
-
-        const turn = node.closest<HTMLElement>('[data-slot="aui_turn-pair"]') ?? node
-
-        if (turn.getBoundingClientRect().top - top <= 8) {
-          active = index
-        }
-      }
-
-      setActiveIndex(active === -1 ? Math.max(0, first) : active)
+      // The fold line moves with the scroll; the turns do not.
+      setActiveIndex(activeRailIndex(offsets, viewport.scrollTop + RAIL_FOLD_SLACK))
     }
 
     const schedule = () => {
-      if (!frame) {
+      if (!frame && !measuring) {
         frame = requestAnimationFrame(compute)
       }
     }
 
-    const observer = new MutationObserver(schedule)
+    const observer = new MutationObserver(remeasure)
     const content = viewport.querySelector('[data-slot="aui_thread-content"]')
 
     if (content) {
       observer.observe(content, { childList: true })
     }
 
+    // Window resizes move every turn in content space; remeasure then too.
+    const onResize = () => remeasure()
+    window.addEventListener('resize', onResize)
     viewport.addEventListener('scroll', schedule, { passive: true })
     viewport.addEventListener('wheel', cancelJump, { passive: true })
     schedule()
@@ -303,6 +306,7 @@ const ActiveThreadTimeline: FC = () => {
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
+      window.removeEventListener('resize', onResize)
       viewport.removeEventListener('scroll', schedule)
       viewport.removeEventListener('wheel', cancelJump)
     }

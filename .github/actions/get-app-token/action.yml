@@ -31,6 +31,14 @@ inputs:
     description: Comma- or newline-separated repositories to scope within the installation owner.
     required: false
     default: ''
+  permission-contents:
+    description: Optional contents permission override for the installation token.
+    required: false
+    default: ''
+  permission-pull-requests:
+    description: Optional pull-request permission override for the installation token.
+    required: false
+    default: ''
 
 outputs:
   token:
@@ -61,6 +69,8 @@ runs:
         private-key: ${{ inputs.private-key }}
         owner: ${{ inputs.owner }}
         repositories: ${{ inputs.repositories }}
+        permission-contents: ${{ inputs.permission-contents }}
+        permission-pull-requests: ${{ inputs.permission-pull-requests }}
 
     - name: Fall back to GITHUB_TOKEN
       id: fallback

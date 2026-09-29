@@ -12,6 +12,7 @@ from pm.artifact_mirror import object_key
 from pm.downloader import HashError
 from scripts.ci import archive_inputs as inputs
 from scripts.releases import r2
+from tests.pm._range_server import dl_server  # noqa: F401
 from tests.scripts.test_release_r2 import r2_server  # noqa: F401
 from tests.scripts.test_termux_runtime_libs import _Server, _build_deb
 
@@ -40,7 +41,7 @@ def test_target_selection_preserves_multi_archive_and_any_fallback(tmp_path):
     packages = {
         "engine": {"version": "1", "artifacts": {
             "win32-x64": [row("engine"), row("cudart")], "linux-x64": row("linux"),
-        }},
+        }, "prepared": {"win32-x64": {"sha256": row("prepared")["sha256"]}}},
         "portable": {"version": "1", "artifacts": {"any": row("portable")}},
         "container": {"version": "1", "artifacts": {"linux-arm64-bionic": {
             "url": "docker://termux/termux-docker@sha256:" + "a" * 64,
@@ -49,11 +50,12 @@ def test_target_selection_preserves_multi_archive_and_any_fallback(tmp_path):
     lib = row("lib")
     write_pins(tmp_path, packages, {"libs": {"lib": lib}, "licenses": row("license")})
     win = inputs.pinned_inputs(tmp_path, target="win32-x64")
-    assert {p.sha256 for p in win} == {row(n)["sha256"] for n in ("engine", "cudart", "portable")}
+    assert {p.sha256 for p in win} == {row(n)["sha256"] for n in ("engine", "cudart", "portable", "prepared")}
+    assert next(p for p in win if p.kind == "prepared").url == inputs.github_asset_url(row("prepared")["sha256"])
     bionic = inputs.pinned_inputs(tmp_path, target="linux-arm64-bionic")
     assert {p.sha256 for p in bionic} == {row(n)["sha256"] for n in ("portable", "lib", "license")}
     all_pins = inputs.pinned_inputs(tmp_path)
-    assert {p.sha256 for p in all_pins} == {row(n)["sha256"] for n in ("engine", "cudart", "portable", "linux", "lib", "license")}
+    assert {p.sha256 for p in all_pins} == {row(n)["sha256"] for n in ("engine", "cudart", "portable", "linux", "lib", "license", "prepared")}
 
 
 @pytest.mark.parametrize("bad", [{}, {"url": "https://u/file.zip"}, {"url": "http://u/file.zip", "sha256": "a" * 64}, {"url": "https://u/file.zip", "sha256": " A "}])
@@ -128,7 +130,7 @@ def test_corrupt_or_denied_archive_never_publishes_a_destination(tmp_path, upstr
     dest = tmp_path / "preserved"
     dest.write_bytes(b"old")
     with pytest.raises((HashError, ValueError, r2.R2RequestError)):
-        inputs.Archive(*r2.credentials()).fetch(pin, dest)
+        inputs.Archive((inputs.R2Mirror(*r2.credentials()),)).fetch(pin, dest)
     assert dest.read_bytes() == b"old"
     assert any(r[0] == "PUT" for r in r2_server.requests) == (failure == "readback")
 
@@ -147,7 +149,7 @@ def test_racing_misses_verify_the_immutable_winner(tmp_path, upstream, r2_server
                 barrier.wait(timeout=10)
             raise
     monkeypatch.setattr(r2, "signed_request", race)
-    archive = inputs.Archive(*r2.credentials())
+    archive = inputs.Archive((inputs.R2Mirror(*r2.credentials()),))
     paths = [tmp_path / f"race-{i}" for i in range(2)]
     with ThreadPoolExecutor(max_workers=2) as pool:
         assert list(pool.map(lambda p: archive.fetch(pin, p), paths)) == ["upstream", "upstream"]
@@ -178,7 +180,7 @@ def test_all_digests_start_together_and_seed_every_reference(tmp_path, upstream,
     monkeypatch.setattr(r2, "signed_request", together)
     store = Store(tmp_path / "tools")
     payload = tmp_path / "payload"
-    assert inputs.stage_inputs(pins, archive=inputs.Archive(*r2.credentials()),
+    assert inputs.stage_inputs(pins, archive=inputs.Archive((inputs.R2Mirror(*r2.credentials()),)),
                                store=store, payload=payload) == len(bodies)
     puts = Counter(path for method, path, _ in r2_server.requests if method == "PUT")
     assert len(puts) == len(bodies) and set(puts.values()) == {1}
@@ -231,8 +233,93 @@ def test_historical_recovery_keeps_the_original_digest(tmp_path, upstream, r2_se
     pin = inputs.InputPin("lib", server.url + "/gone.deb", hashlib.sha256(body).hexdigest(), "library")
     monkeypatch.setattr(inputs, "historical_url", lambda _: server.url + "/lib.deb")
     dest = tmp_path / "recovered"
-    assert inputs.Archive(*r2.credentials()).fetch(pin, dest) == "historical archive"
+    assert inputs.Archive((inputs.R2Mirror(*r2.credentials()),)).fetch(pin, dest) == "historical archive"
     assert dest.read_bytes() == body
+
+
+def test_github_release_and_r2_share_verified_bytes(tmp_path, upstream, r2_server, dl_server):
+    from pm.artifact_mirror import github_release_tag
+    from tests.pm._range_server import RangeHandler, url
+
+    server, root = upstream
+    body = (root / "lib.deb").read_bytes()
+    sha = hashlib.sha256(body).hexdigest()
+    pin = inputs.InputPin("lib", server.url + "/lib.deb", sha, "library")
+    assets = {}
+    tags = set()
+
+    class Api:
+        def release_assets(self, tag):
+            if tag not in tags:
+                return None
+            return [dict(id=i, name=name, size=len(data), state="uploaded")
+                    for i, (name, data) in enumerate(assets.items(), 1)]
+
+        def create_release(self, tag):
+            tags.add(tag)
+
+        def upload(self, tag, path):
+            assert tag in tags and path.name == sha
+            assets[path.name] = path.read_bytes()
+            RangeHandler.payloads["/assets/" + path.name] = assets[path.name]
+
+        def delete_asset(self, asset_id):
+            raise AssertionError("no uploaded asset may be deleted")
+
+    github = inputs.GitHubMirror(Api(), asset_url=lambda digest: url(dl_server, "/assets/" + digest))
+    r2mirror = inputs.R2Mirror(*r2.credentials())
+    archive = inputs.Archive((github, r2mirror))
+    r2_server.store[object_key(sha)] = (body, '"etag"')
+    (root / "lib.deb").unlink()
+    output = tmp_path / "verified"
+    assert archive.fetch(pin, output) == "R2"
+    assert output.read_bytes() == assets[sha] == body
+    assert github_release_tag(sha) in tags
+    r2_server.store.pop(object_key(sha))
+    output.unlink()
+    assert archive.fetch(pin, output) == "GitHub"
+    assert output.read_bytes() == r2_server.store[object_key(sha)][0] == body
+    RangeHandler.payloads["/assets/" + sha] = b"corrupt"
+    output.write_bytes(b"previous")
+    with pytest.raises(HashError):
+        archive.fetch(pin, output)
+    assert output.read_bytes() == b"previous"
+
+
+def test_archive_from_env_requires_an_owned_mirror(monkeypatch):
+    from pm.artifact_mirror import github_repository
+
+    for name in ("CLOUDFLARE_R2_ACCOUNT_ID", "GH_TOKEN", "GITHUB_REPOSITORY"):
+        monkeypatch.delenv(name, raising=False)
+    with pytest.raises(ValueError, match="need GitHub release access or R2"):
+        inputs.archive_from_env()
+    monkeypatch.setenv("GH_TOKEN", "test-token")
+    monkeypatch.setenv("GITHUB_REPOSITORY", github_repository())
+    assert [m.name for m in inputs.archive_from_env().mirrors] == ["GitHub"]
+    monkeypatch.setenv("GITHUB_REPOSITORY", "other/fork")
+    with pytest.raises(ValueError, match="need GitHub release access or R2"):
+        inputs.archive_from_env()
+
+
+def test_gh_cli_release_is_non_latest_and_reads_paginated_assets(tmp_path):
+    import subprocess
+
+    calls = []
+    def run(args, **kwargs):
+        calls.append(args)
+        if args[1:3] == ["api", "repos/NousResearch/hermes-agent/releases/tags/inputs-a"]:
+            return subprocess.CompletedProcess(args, 0, '{"id": 12}', "")
+        if args[1:3] == ["api", "--paginate"]:
+            return subprocess.CompletedProcess(args, 0, '[[{"name": "a", "state": "uploaded", "size": 2}]]', "")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    api = inputs.GhCli("NousResearch/hermes-agent", run=run)
+    assert api.release_assets("inputs-a") == [{"name": "a", "state": "uploaded", "size": 2}]
+    api.create_release("inputs-a")
+    api.upload("inputs-a", tmp_path / "a")
+    assert "--latest=false" in calls[2]
+    assert calls[3][1:4] == ["release", "upload", "inputs-a"]
+    assert all("--repo" in args for args in calls[2:])
 
 
 def test_committed_inventory_matches_every_http_pin():

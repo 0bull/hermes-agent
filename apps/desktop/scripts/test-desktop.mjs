@@ -283,6 +283,7 @@ function launchFresh() {
 // GET /api/health — never gateway.pid (that file is the messaging gateway's
 // record, a different surface) and never a mock.
 const LIFECYCLE_BACKEND_ROOT = process.env.HERMES_DESKTOP_LIFECYCLE_BACKEND_ROOT
+const LIFECYCLE_LEGACY_READY = process.env.HERMES_DESKTOP_LIFECYCLE_LEGACY_READY === '1'
 const LIFECYCLE_TIMEOUT_MS = Number(process.env.HERMES_DESKTOP_LIFECYCLE_TIMEOUT_MS) || 150_000
 const LIFECYCLE_KEEP = process.env.HERMES_DESKTOP_LIFECYCLE_KEEP === '1'
 
@@ -314,7 +315,17 @@ function lifecycleEnv(sandbox) {
   }
   delete env.HERMES_DESKTOP_HERMES
   delete env.HERMES_DESKTOP_TEST_MODE
-  return { env, userDataDir, hermesHome, cwd }
+  let legacyPython = null
+  if (LIFECYCLE_LEGACY_READY) {
+    if (PLATFORM === 'win32' || !env.HERMES_DESKTOP_PYTHON) {
+      throw new Error('Legacy READY lifecycle needs POSIX and HERMES_DESKTOP_PYTHON')
+    }
+    legacyPython = path.join(sandbox, 'legacy-ready-python')
+    fs.copyFileSync(new URL('./legacy-ready-python.py', import.meta.url), legacyPython)
+    fs.chmodSync(legacyPython, 0o755)
+    env.HERMES_DESKTOP_LIFECYCLE_REAL_PYTHON = env.HERMES_DESKTOP_PYTHON
+  }
+  return { env, userDataDir, hermesHome, cwd, legacyPython }
 }
 
 // Readiness, the app's own way: the Electron main logs
@@ -351,6 +362,15 @@ async function serveBackendReady(hermesHome, label, offset) {
   throw new Error(`[${label}] no announced serve backend answered /api/health within ${LIFECYCLE_TIMEOUT_MS}ms (announced ports: ${[...announced].join(', ') || 'none'}; probes: ${[...tried].map(([p, r]) => `${p}:${r}`).join(', ') || 'none'}; log: ${logPath})`)
 }
 
+// Seeded skills are deliberately read-only; make only this test's sandbox
+// directories writable so teardown can unlink their contents.
+function makeSandboxDirectoriesWritable(dir) {
+  fs.chmodSync(dir, fs.statSync(dir).mode | 0o200)
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) makeSandboxDirectoriesWritable(path.join(dir, entry.name))
+  }
+}
+
 // Everything the first session created in the isolated home must survive the
 // quit + relaunch cycle. Transient scratch (*.tmp/.lock/.part) is excluded:
 // a healthy later session may clean up stale temp files — that is not loss.
@@ -378,12 +398,15 @@ function snapshotHome(root) {
 async function runLifecycle() {
   const { _electron } = await import('@playwright/test')
   const sandbox = fs.mkdtempSync(`${FRESH_SANDBOX_ROOT}-lifecycle-`)
-  const { env, userDataDir, hermesHome } = lifecycleEnv(sandbox)
+  const { env, userDataDir, hermesHome, legacyPython } = lifecycleEnv(sandbox)
   const sessions = []
   let preservedBefore = null
 
   try {
     for (const label of ['session-1', 'session-2']) {
+      // The second boot uses the real serve process behind a stdout-only
+      // adapter, so this same packaged binary must accept the older token.
+      if (label === 'session-2' && legacyPython) env.HERMES_DESKTOP_PYTHON = legacyPython
       const log = path.join(hermesHome, 'logs', 'desktop.log')
       const offset = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').length : 0
       const app = await _electron.launch({
@@ -398,7 +421,17 @@ async function runLifecycle() {
         const window = await app.firstWindow({ timeout: LIFECYCLE_TIMEOUT_MS })
         console.log(`[${label}] first window: ${window.url()}`)
         const ready = await serveBackendReady(hermesHome, label, offset)
-        console.log(`[${label}] READY: serve backend announced port ${ready.port}, /api/health → 200`)
+        if (label === 'session-2' && legacyPython) {
+          const freshLog = fs.readFileSync(log, 'utf8').slice(offset)
+          if (!freshLog.includes(`HERMES_DASHBOARD_READY port=${ready.port}`)) {
+            throw new Error(`[${label}] real backend did not announce through the legacy-token adapter`)
+          }
+        }
+        const connection = await window.evaluate(() => window.hermesDesktop.getConnection())
+        if (connection.baseUrl !== `http://127.0.0.1:${ready.port}`) {
+          throw new Error(`[${label}] Desktop did not adopt the announced port: ${connection.baseUrl}`)
+        }
+        console.log(`[${label}] READY: serve backend announced port ${ready.port}, /api/health → 200; Desktop adopted the port`)
         sessions.push({ label, appPid: proc.pid, ...ready, windowUrl: window.url() })
         if (label === 'session-1') preservedBefore = snapshotHome(hermesHome)
       } finally {
@@ -426,6 +459,7 @@ async function runLifecycle() {
     console.log(JSON.stringify({ sandbox, userDataDir, hermesHome, backendRoot: env.HERMES_DESKTOP_HERMES_ROOT || null, sessions, preserved: { before: preservedBefore.length, after: preservedAfter.length, lost: 0 } }, null, 2))
   } finally {
     if (!LIFECYCLE_KEEP) {
+      makeSandboxDirectoriesWritable(sandbox)
       fs.rmSync(sandbox, { recursive: true, force: true })
       console.log(`  sandbox removed: ${sandbox}`)
     } else {

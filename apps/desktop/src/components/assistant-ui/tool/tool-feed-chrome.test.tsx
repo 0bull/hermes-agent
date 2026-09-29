@@ -130,6 +130,21 @@ describe('tool feed visibility policy', () => {
     expect(container.querySelectorAll('[data-tool-row]')).toHaveLength(1)
   })
 
+  it('keeps a completed file diff when tool activity is off', async () => {
+    setShowReasoningFromConfig(false)
+    setShowToolActivityFromConfig('off')
+
+    const { container } = render(completionHarness({
+      tool_id: 'edit-1', name: 'write_file', args: { path: '/repo/src/status.tsx' },
+      inline_diff: '--- a/status.tsx\n+++ b/status.tsx\n@@ -1 +1 @@\n-old\n+new',
+      result: { success: true }
+    }))
+
+    expect(await screen.findByText('done')).toBeTruthy()
+    expect(container.querySelectorAll('[data-tool-row]')).toHaveLength(1)
+    expect(container.querySelector('[data-tool-summary]')).toBeNull()
+  })
+
   it('keeps the execution flow while reasoning stays hidden', async () => {
     // Regression for #121524: hiding reasoning hid every tool row. A missing
     // display.tool_progress means on, whatever show_reasoning says.

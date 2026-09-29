@@ -44,14 +44,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import ast
 import hashlib
 import json
 import os
 import sqlite3
 import stat
 import sys
-from pathlib import Path
 
 SCHEMA_VERSION = 1
 PROFILES_DIR = "profiles"
@@ -69,13 +67,10 @@ JUDGED_ROOTS = ("memories", "cron", "sessions", "profiles", "photon",
 # Trees recorded for the report but never judged (see the module docstring).
 ADVISORY_ROOTS = (SKILLS_ROOT,)
 
-# The tree's own migrations clear dead provider vars out of .env (the old setup
-# wizard wrote LLM_MODEL/OPENAI_MODEL; config.yaml is the source of truth now).
-# A key the CURRENT tree retires is not user state, so the upgrade clearing it
-# is reported, not failed. Derived from the migration source so a newly retired
-# var cannot drift out of this set; unreadable source retires nothing, which
-# keeps every .env change fatal.
-MIGRATION_SOURCE = Path(__file__).resolve().parents[3] / "hermes_cli" / "config_migrations.py"
+# Explicitly reviewed exceptions. Migration v12→13 clears these two old setup
+# wizard settings. A real migration/verifier integration test proves this list;
+# future retired keys are fatal until that contract is updated deliberately.
+RETIRED_ENV_VARS = frozenset({"LLM_MODEL", "OPENAI_MODEL"})
 EMPTY_VALUE_DIGEST = hashlib.sha256(b"").hexdigest()[:12]
 # state.db tables whose row counts stand in for "the user's data is still here".
 # Counting rows rather than hashing bytes: a live SQLite file changes for
@@ -196,44 +191,6 @@ def _env_key_diff(before: dict, after: dict) -> dict:
     }
 
 
-def _clears_loop_var(node: ast.AST, loop_var: str) -> bool:
-    """``save_env_value(loop_var, "")`` -- the migration's retire-this-key write."""
-    return (
-        isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Attribute)
-        and node.func.attr == "save_env_value"
-        and len(node.args) == 2
-        and isinstance(node.args[0], ast.Name)
-        and node.args[0].id == loop_var
-        and isinstance(node.args[1], ast.Constant)
-        and node.args[1].value == ""
-    )
-
-
-def retired_env_vars(source: Path | None = None) -> frozenset[str]:
-    """Provider vars the tree's own migrations clear to empty.
-
-    Matches the loop form the 12 -> 13 migration uses
-    (``for dead in ("X", "Y"): save_env_value(dead, "")``) -- the only shape
-    that both names the keys and acts on them. A migration written another way
-    is simply not derived, which fails a leg loudly instead of silently
-    tolerating a real loss.
-    """
-    path = MIGRATION_SOURCE if source is None else source
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8-sig"))
-    except (OSError, SyntaxError, UnicodeError):
-        return frozenset()
-    retired: set[str] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.For) or not isinstance(node.target, ast.Name):
-            continue
-        if not any(_clears_loop_var(call, node.target.id) for call in ast.walk(node)):
-            continue
-        retired.update(
-            element.value for element in ast.walk(node.iter)
-            if isinstance(element, ast.Constant) and isinstance(element.value, str))
-    return frozenset(retired)
 
 
 def retired_env_clear(rel: str, pair: dict, retired: frozenset[str] | None = None) -> list[str]:
@@ -243,7 +200,7 @@ def retired_env_clear(rel: str, pair: dict, retired: frozenset[str] | None = Non
     or a retired key the migration did NOT clear. Values are compared as the
     same digests the snapshot records, so "emptied" is exact.
     """
-    known = retired_env_vars() if retired is None else retired
+    known = RETIRED_ENV_VARS if retired is None else retired
     if os.path.basename(rel) != ".env" or not known:
         return []
     diff = _env_key_diff(pair["before"], pair["after"])

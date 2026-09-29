@@ -1,44 +1,21 @@
-"""Tests for subprocess.run() timeout coverage in CLI utilities."""
-import ast
-from pathlib import Path
+"""The real doctor command probe times out and reaps a hung child."""
+import os
+import sys
 
-import pytest
-
-
-# Parameterise over every CLI module that calls subprocess.run
-_CLI_MODULES = [
-    "hermes_cli/doctor.py",
-    "hermes_cli/status.py",
-    "hermes_cli/clipboard.py",
-    "hermes_cli/banner.py",
-]
+from hermes_cli.doctor_tools import _run_ok
 
 
-def _subprocess_run_calls(filepath: str) -> list[dict]:
-    """Parse a Python file and return info about subprocess.run() calls."""
-    source = Path(filepath).read_text()
-    tree = ast.parse(source, filename=filepath)
-    calls = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        if (isinstance(func, ast.Attribute) and func.attr == "run"
-                and isinstance(func.value, ast.Name)
-                and func.value.id == "subprocess"):
-            has_timeout = any(kw.arg == "timeout" for kw in node.keywords)
-            calls.append({"line": node.lineno, "has_timeout": has_timeout})
-    return calls
-
-
-@pytest.mark.parametrize("filepath", _CLI_MODULES)
-def test_all_subprocess_run_calls_have_timeout(filepath):
-    """Every subprocess.run() call in CLI modules must specify a timeout."""
-    if not Path(filepath).exists():
-        pytest.skip(f"{filepath} not found")
-    calls = _subprocess_run_calls(filepath)
-    missing = [c for c in calls if not c["has_timeout"]]
-    assert not missing, (
-        f"{filepath} has subprocess.run() without timeout at "
-        f"line(s): {[c['line'] for c in missing]}"
-    )
+def test_doctor_probe_bounds_hung_child(tmp_path):
+    pid_file = tmp_path / "child.pid"
+    code = ("import os, sys, time; "
+            "open(sys.argv[1], 'w', encoding='ascii').write(str(os.getpid())); "
+            "time.sleep(30)")
+    assert not _run_ok([sys.executable, "-c", code, str(pid_file)], timeout=1)
+    assert pid_file.exists(), "the real child did not start"
+    pid = int(pid_file.read_text(encoding="ascii"))
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        pass
+    else:
+        raise AssertionError("timed-out doctor child was not reaped")

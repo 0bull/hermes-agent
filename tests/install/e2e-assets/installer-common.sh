@@ -69,24 +69,35 @@ resolve_update_ref() {
 
 run_source_installer() {
   local repo="$1" work="$2" logs="$3" ref="$4" label="$5" desktop="${6:-}"
-  local script="$work/install-$label.sh" text help_text rc=0
-  # Buffer before grep: git show | grep -q can lose to SIGPIPE under pipefail.
-  text="$(git -C "$repo" show "$ref:scripts/install.sh")" || return
+  local script="$work/install-$label.sh" help_text bindable_help rc=0
   git -C "$repo" show "$ref:scripts/install.sh" > "$script" || return
-  local flags=(--skip-setup)
-  # Historical (pre-PM) installers ran their own Playwright/npm browser
-  # install, which is slow and can prompt for sudo; skip it there. A PM
-  # installer (it enters `pm.cli`) gets no flag: its default install carries
-  # agent-browser + Chromium, which is what users get, so the leg exercises it.
-  # Rejection messages also mention --skip-browser, so trust only the help.
-  help_text="$(bash "$script" --help < /dev/null 2>/dev/null)" || help_text=""
-  if grep -qF -- --skip-browser <<< "$help_text" && ! grep -qF 'pm.cli' <<< "$text"; then
-    flags+=(--skip-browser)
+  local flags=()
+  # Only usage/option entries in executable help count. A flag mentioned in
+  # a rejection message or description is not a bindable capability.
+  help_text="$(bash "$script" --help < /dev/null)" \
+    || { fail "ref $ref installer --help failed; cannot safely select flags"; return 1; }
+  bindable_help="$(grep -E '(^Usage:|^[[:space:]]+\[--)' <<< "$help_text")" || bindable_help=''
+  if grep -Eq -- '--non-interactive([[:space:]]|\]|$)' <<< "$bindable_help"; then
+    flags+=(--non-interactive)
+  elif grep -Eq -- '--skip-setup([[:space:]]|\]|$)' <<< "$bindable_help"; then
+    flags+=(--skip-setup)
+  else
+    fail "ref $ref advertises no non-interactive flag; cannot safely run"
+    return 1
   fi
   if [ "$desktop" = desktop ]; then
-    grep -qF -- --include-desktop <<< "$text" \
-      || { fail "ref $ref does not support --include-desktop; this leg cannot mean what it claims"; return 1; }
+    if ! grep -Eq -- '--include-desktop([[:space:]]|\]|$)' <<< "$bindable_help"; then
+      fail "ref $ref does not advertise --include-desktop; this leg cannot mean what it claims"
+      return 1
+    fi
     flags+=(--include-desktop)
+  fi
+  # Pre-PM installers ran their own interactive browser install. The PM
+  # installer advertises --manifest and owns browser setup as part of its
+  # normal install; let that path run rather than disabling it.
+  if grep -Eq -- '--skip-browser([[:space:]]|\]|$)' <<< "$bindable_help" \
+    && ! grep -Eq -- '--manifest([[:space:]]|\]|$)' <<< "$bindable_help"; then
+    flags+=(--skip-browser)
   fi
   bash "$script" "${flags[@]}" < /dev/null 2>&1 | ts_prefix > "$logs/install-$label.log" || rc=$?
   log_group "install.sh ($label) transcript" "$logs/install-$label.log"

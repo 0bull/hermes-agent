@@ -38,6 +38,8 @@ def _docker_available() -> bool:
 def pytest_collection_modifyitems(config, items):  # noqa: D401 - pytest hook
     """Apply docker-suite policy: timeout bump + skip on missing docker."""
     docker_ok = _docker_available()
+    if not docker_ok and os.environ.get("HERMES_TEST_IMAGE"):
+        pytest.fail("HERMES_TEST_IMAGE is set but the Docker daemon is unavailable", pytrace=False)
     skip_docker = pytest.mark.skip(
         reason="Docker not available or daemon not running",
     )
@@ -68,6 +70,36 @@ def built_image() -> str:
         f"docker build failed:\n{result.stderr[-2000:]}"
     )
     return IMAGE_TAG
+
+
+@pytest.fixture(scope="session")
+def desktop_image() -> str:
+    """Use the CI desktop leg, or explicitly build that variant locally.
+
+    A slim image is not evidence that the Bot Desktop dependencies are baked.
+    CI labels each variant on the image itself; missing metadata fails
+    rather than silently skipping or accidentally testing a slim artifact.
+    """
+    if os.environ.get("HERMES_TEST_IMAGE"):
+        result = subprocess.run(
+            ["docker", "image", "inspect", "--format",
+             '{{index .Config.Labels "org.nousresearch.hermes.variant"}}', IMAGE_TAG],
+            capture_output=True, text=True, timeout=10,
+        )
+        assert result.returncode == 0, result.stderr
+        if result.stdout.strip() == "slim":
+            pytest.skip("Bot Desktop package assertion belongs to the desktop image leg")
+        assert result.stdout.strip() == "desktop", "Prebuilt image lacks a trusted desktop variant label"
+        return IMAGE_TAG
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    tag = "hermes-agent-harness:desktop-test"
+    result = subprocess.run(
+        ["docker", "build", "--build-arg", "HERMES_BOT_DESKTOP=1",
+         "--label", "org.nousresearch.hermes.variant=desktop", "-t", tag, repo_root],
+        capture_output=True, text=True, timeout=1200,
+    )
+    assert result.returncode == 0, f"desktop docker build failed:\n{result.stderr[-2000:]}"
+    return tag
 
 
 @pytest.fixture

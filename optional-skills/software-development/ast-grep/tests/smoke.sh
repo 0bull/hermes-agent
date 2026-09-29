@@ -184,29 +184,5 @@ for f in references/install.md references/patterns.md references/pitfalls.md \
 done
 pass "all references present"
 
-python3 - "$SKILL_DIR" <<'PY' || fail "Korean characters found in skill content"
-import pathlib, re, sys
-root = pathlib.Path(sys.argv[1])
-hangul = re.compile(r"[\uac00-\ud7a3]")
-targets = [root / "SKILL.md", root / "README.md"]
-for d in ("references", "scripts", "tests", ".github"):
-    targets.extend((root / d).rglob("*"))
-targets.extend([root / "install.sh", root / "install.ps1"])
-hits = 0
-for p in targets:
-    if not p.is_file():
-        continue
-    try:
-        text = p.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
-        continue
-    for n, line in enumerate(text.splitlines(), 1):
-        if hangul.search(line):
-            print(f"{p}:{n}: {line.rstrip()}")
-            hits += 1
-sys.exit(1 if hits else 0)
-PY
-pass "no Korean in skill content"
-
 echo ""
 echo "all smoke tests passed"

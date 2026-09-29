@@ -12,10 +12,8 @@
 // reproduce #93911 at the upper boundary — the backend knowing a typed reason
 // while Desktop reports its generic timeout first.
 //
-// These three are mirrors of backend values, so a change there must not
-// silently invalidate this constant: relay-deliver-budget.test.ts compares
-// them with hermes_cli/config_defaults.py and tools/bot_relay.py and fails if
-// the mirrors drift or the margin stops being positive.
+// These three mirror backend values. The relay budget test imports the running
+// Python defaults and requires this deadline to outlive the backend bound.
 export const RELAY_TURN_LOCK_WAIT_MS = 120_000 // bot_mode.turn_wait_seconds default
 export const RELAY_TURN_ATTEMPT_MS = 600_000 // tools/bot_relay.py TURN_ATTEMPT_TIMEOUT_SECONDS
 export const RELAY_TURN_MAX_ATTEMPTS = 2 // first attempt + the policy-gated re-run

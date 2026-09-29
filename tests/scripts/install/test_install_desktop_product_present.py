@@ -9,7 +9,6 @@ desktop rebuild and left a bundle built from the previous code.
 from __future__ import annotations
 
 import os
-import re
 import shlex
 import subprocess
 from pathlib import Path
@@ -42,9 +41,19 @@ def test_install_sh_without_desktop_build(tmp_path):
     assert _desktop_product_present(tmp_path) != 0
 
 
-def test_install_ps1_candidates_match_install_sh():
-    body = INSTALL_PS1.read_text(encoding="utf-8")
-    fn = body[body.index("function Test-DesktopProductPresent"):]
-    listed = re.search(r"foreach \(\$candidate in @\((.*?)\)\)", fn, re.S)
-    assert listed, "Test-DesktopProductPresent candidate list not found"
-    assert set(re.findall(r'"([^"]+)"', listed.group(1))) == set(UNPACKED_DIRS)
+@pytest.mark.platforms("windows")
+@pytest.mark.parametrize("unpacked,expected", [("win-arm64-unpacked", 0), ("builder-debug", 1)])
+def test_install_ps1_detects_existing_product_natively(tmp_path, unpacked, expected):
+    """Dot-source the actual installer without running its entry point.
+
+    The full unflagged repair and rebuilt artifact are exercised in the
+    installer-script+desktop Windows E2E leg. Do not emulate PowerShell here.
+    """
+    (tmp_path / "apps" / "desktop" / "release" / unpacked).mkdir(parents=True)
+    quoted_script = str(INSTALL_PS1).replace("'", "''")
+    quoted_install = str(tmp_path).replace("'", "''")
+    command = (f". '{quoted_script}'; $script:InstallDir = '{quoted_install}'; "
+               "if (Test-DesktopProductPresent) { exit 0 } else { exit 1 }")
+    result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                             "-Command", command], capture_output=True, text=True, timeout=30)
+    assert result.returncode == expected, result.stderr

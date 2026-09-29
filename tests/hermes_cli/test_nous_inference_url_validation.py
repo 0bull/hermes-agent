@@ -11,8 +11,7 @@ outside the allowlist at the source.
 These tests verify:
 
 1. The validator's host + scheme rules.
-2. Each of the two NETWORK call sites in ``auth.py`` calls the validator
-   rather than the unrestricted ``_optional_base_url`` helper.
+2. A refresh rejects and heals a poisoned network-provided URL.
 3. The proxy adapter applies the validator as belt-and-suspenders.
 4. The env-var override path (``NOUS_INFERENCE_BASE_URL``) is NOT
    gated by the validator — that's the documented dev/staging escape
@@ -49,33 +48,6 @@ class TestValidatorRules:
         assert (
             _validate_nous_inference_url_from_network(DEFAULT_NOUS_INFERENCE_URL)
             == DEFAULT_NOUS_INFERENCE_URL.rstrip("/")
-        )
-
-class TestCallSiteWiring:
-    """Verify the validator is actually wired into all auth.py NETWORK call sites.
-
-    These are not behaviour-end-to-end tests (the surrounding code is
-    several hundred lines per site with extensive HTTP mocking
-    requirements). They're text-grep contracts: if anyone replaces
-    ``_validate_nous_inference_url_from_network`` with the un-validated
-    ``_optional_base_url`` again, the test catches it.
-
-    Each site lives inside ``resolve_nous_runtime_credentials`` and one
-    helper (``_extend_state_from_refresh``). The shape we guard against
-    is ``<helper>_url = _optional_base_url(<payload>.get("inference_base_url"))``
-    — that's what the unsafe pre-fix code looked like, and the only
-    semantic difference between the safe and unsafe helpers is the
-    host-allowlist check.
-    """
-
-    def _read_auth_source(self):
-        # The Nous refresh sites live in auth_nous.py (split out of auth.py);
-        # read both so the guard tolerates relocation but still fires on deletion.
-        import hermes_cli.auth as _auth_mod
-        import hermes_cli.auth_nous as _nous_mod
-        from pathlib import Path
-        return "".join(
-            Path(m.__file__).read_text(encoding="utf-8") for m in (_auth_mod, _nous_mod)
         )
 
 class TestEnvOverrideNotGated:

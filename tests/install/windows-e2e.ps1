@@ -448,8 +448,8 @@ function Test-HermesRuns([string]$Label) {
 
 # ----------------------------------------------------------------------------
 # Script-install arm: the irm | iex one-liner, headless (the install.ps1
-# shipped AT the ref under test, run with flags probed from that ref's own
-# script text - older releases reject parameters added later).
+# shipped AT the ref under test; bindable parameters are probed from the
+# materialized script's command metadata, not mentions in its comments).
 # ----------------------------------------------------------------------------
 # shellcheck source=../e2e-assets/ts-prefix.ps1
 . (Join-Path $PSScriptRoot "e2e-assets\ts-prefix.ps1")
@@ -467,15 +467,21 @@ function Invoke-RefInstaller {
     $script = Join-Path $WorkRoot "install-$Label.ps1"
     (Invoke-Git @("-C", $RepoRoot, "show", "$Ref`:scripts/install.ps1")) -join "`n" |
         Set-Content -LiteralPath $script -Encoding UTF8
+    # Get-Command parses the materialized script without executing installation.
+    # A mention of a switch in a comment or error string is not a parameter.
+    $parameters = (Get-Command -Name $script -CommandType ExternalScript -ErrorAction Stop).Parameters
+    foreach ($required in @('HermesHome', 'InstallDir')) {
+        Assert-True ($parameters.ContainsKey($required)) "ref $Ref binds -$required"
+    }
     $flags = @("-HermesHome", $HermesHome, "-InstallDir", $InstallDir)
-    $text = Get-Content -LiteralPath $script -Raw
-    if ($text -match '\$NonInteractive') { $flags += "-NonInteractive" }
-    else { $flags += "-SkipSetup" }
+    if ($parameters.ContainsKey('NonInteractive')) { $flags += "-NonInteractive" }
+    elseif ($parameters.ContainsKey('SkipSetup')) { $flags += "-SkipSetup" }
+    else { throw "E2E ASSERTION FAILED: ref $Ref has no non-interactive setup parameter" }
     if ($IncludeDesktop) {
-        # The desktop stage is the point of this leg: a ref without the
+        # The desktop stage is the point of this leg: a ref without a bindable
         # parameter is a hard failure, not a silent plain install.
-        if ($text -notmatch '\$IncludeDesktop') {
-            throw "E2E ASSERTION FAILED: ref $Ref does not support -IncludeDesktop; this leg cannot mean what it claims"
+        if (-not $parameters.ContainsKey('IncludeDesktop')) {
+            throw "E2E ASSERTION FAILED: ref $Ref does not bind -IncludeDesktop; this leg cannot mean what it claims"
         }
         $flags += "-IncludeDesktop"
     }
@@ -1601,6 +1607,21 @@ function Invoke-PhaseUpdate {
         "installer-script+desktop" {
             Invoke-RefInstaller $state.current "head" -IncludeDesktop
             Assert-DesktopArtifact "HEAD"
+            # On the x64 runner, leave only an ARM64-named existing product.
+            # An unflagged repair must detect that candidate, execute products
+            # with desktop enabled, and publish a new native x64 artifact.
+            if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq
+                [System.Runtime.InteropServices.Architecture]::X64) {
+                $release = Join-Path $InstallDir 'apps/desktop/release'
+                $native = Join-Path $release 'win-unpacked'
+                $armCandidate = Join-Path $release 'win-arm64-unpacked'
+                Assert-True (Test-Path -LiteralPath (Join-Path $native 'Hermes.exe')) 'HEAD native desktop output exists before repair'
+                Assert-True (-not (Test-Path -LiteralPath $armCandidate)) 'ARM64 candidate is absent before repair'
+                Move-Item -LiteralPath $native -Destination $armCandidate
+                Assert-True (-not (Test-Path -LiteralPath $native)) 'only ARM64-named desktop candidate remains'
+                Invoke-RefInstaller $state.current 'repair-arm64-candidate'
+                Assert-True (Test-Path -LiteralPath (Join-Path $native 'Hermes.exe')) 'unflagged repair rebuilt native desktop artifact from ARM64-named candidate'
+            }
         }
         "desktop-installer@latest" {
             # A user re-downloading Hermes-Setup.exe and clicking Install over

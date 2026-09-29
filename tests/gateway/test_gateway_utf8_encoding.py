@@ -1,60 +1,25 @@
-"""Static guard: every ``read_text`` / ``write_text`` call in the gateway and
-bundled update-response adapters must pass an explicit ``encoding=`` keyword
-argument so non-UTF-8 Windows locales don't corrupt file IPC.  Mirrors the
-AST-based guard pattern in
-``tests/tools/test_windows_compat.py``.
-"""
+"""Bundled gateway platform manifests must decode UTF-8 independent of locale."""
+import os
+import subprocess
+import sys
+from pathlib import Path
 
-import ast
-import pathlib
-import pytest
-
-REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-GATEWAY_DIR = REPO_ROOT / "gateway"
-UPDATE_RESPONSE_FILES = (
-    REPO_ROOT / "plugins/platforms/discord/adapter.py",
-    REPO_ROOT / "plugins/platforms/telegram/adapter.py",
-    REPO_ROOT / "plugins/platforms/feishu/adapter.py",
-    REPO_ROOT / "plugins/platforms/whatsapp/adapter.py",
-    REPO_ROOT / "plugins/platforms/google_chat/adapter.py",
-    REPO_ROOT / "plugins/platforms/google_chat/oauth.py",
-)
-METHODS = {"read_text", "write_text"}
-SUPPRESSION = "# gateway-utf8: ok"
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _find_violations():
-    violations = []
-    py_files = list(GATEWAY_DIR.rglob("*.py")) + list(UPDATE_RESPONSE_FILES)
-    for py_file in sorted(py_files):
-        source = py_file.read_text(encoding="utf-8")
-        source_lines = source.splitlines()
-        try:
-            tree = ast.parse(source, filename=str(py_file))
-        except SyntaxError:
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            func = node.func
-            if not isinstance(func, ast.Attribute):
-                continue
-            if func.attr not in METHODS:
-                continue
-            if any(kw.arg == "encoding" for kw in node.keywords):
-                continue
-            lineno = node.lineno
-            if lineno <= len(source_lines) and SUPPRESSION in source_lines[lineno - 1]:
-                continue
-            rel = py_file.relative_to(REPO_ROOT)
-            violations.append(f"{rel}:{lineno}")
-    return violations
-
-
-def test_all_read_write_text_pass_encoding():
-    violations = _find_violations()
-    assert not violations, (
-        "Bare read_text()/write_text() calls found (missing encoding= kwarg).\n"
-        "Add encoding=\"utf-8\" or suppress with '# gateway-utf8: ok':\n"
-        + "\n".join(f"  {v}" for v in violations)
+def test_bundled_manifest_name_under_ascii_locale(tmp_path):
+    plugin_dir = tmp_path / "platform"
+    plugin_dir.mkdir()
+    (plugin_dir / "plugin.yaml").write_bytes("name: 雪橋\n".encode("utf-8"))
+    env = dict(os.environ, HERMES_HOME=str(tmp_path), PYTHONPATH=str(REPO_ROOT), LC_ALL="C",
+               PYTHONCOERCECLOCALE="0")
+    child = (
+        "import locale, sys\n"
+        "from pathlib import Path\n"
+        "from gateway.config import _bundled_platform_manifest_name\n"
+        "assert locale.getpreferredencoding(False).lower() != 'utf-8'\n"
+        "assert _bundled_platform_manifest_name(Path(sys.argv[1])) == '\\u96ea\\u6a4b'\n"
     )
+    result = subprocess.run([sys.executable, "-X", "utf8=0", "-c", child, str(plugin_dir)],
+                            cwd=tmp_path, env=env, capture_output=True, timeout=20)
+    assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")

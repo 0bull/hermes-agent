@@ -420,20 +420,47 @@ def test_any_sqlite_database_is_judged_by_rows_not_bytes(tmp_path):
 
 # --- retired provider vars ---------------------------------------------------
 
-def test_retired_env_vars_come_from_the_migration_source(tmp_path):
-    """The set is read from hermes_cli/config_migrations.py, not invented here.
+def test_real_config_migration_and_verifier_agree_on_retired_keys(tmp_path):
+    """Observe the actual v12 migration, then judge its .env output.
 
-    The 12 -> 13 migration clears LLM_MODEL/OPENAI_MODEL: the old setup wizard
-    wrote them and nothing reads them now. A verifier carrying its own copy of
-    that list would silently stop following the tree the moment it changes.
+    A source declaration without a reachable migration must not establish an
+    exception to user-state preservation. Run in a fresh process with an
+    isolated home so config/env module caches cannot supply another home.
     """
-    assert vus.retired_env_vars() == {"LLM_MODEL", "OPENAI_MODEL"}
-    # Unreadable or unparseable source retires nothing, so every .env change
-    # stays fatal rather than quietly becoming tolerated.
-    assert vus.retired_env_vars(tmp_path / "absent.py") == frozenset()
-    broken = tmp_path / "broken.py"
-    broken.write_text("def (:\n", encoding="utf-8")
-    assert vus.retired_env_vars(broken) == frozenset()
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "config.yaml").write_text("_config_version: 12\n", encoding="utf-8")
+    (home / ".env").write_text(
+        "LLM_MODEL=old-model\nOPENAI_MODEL=old-openai\nOPENROUTER_API_KEY=secret-value\n",
+        encoding="utf-8",
+    )
+    snap = vus.snapshot_home(str(home))
+    env = os.environ.copy()
+    env.update(HERMES_HOME=str(home), PYTHONDONTWRITEBYTECODE="1")
+    env.pop("LLM_MODEL", None)
+    env.pop("OPENAI_MODEL", None)
+    migrated = subprocess.run(
+        [sys.executable, "-B", "-c",
+         "from hermes_cli.config import migrate_config; migrate_config(interactive=False, quiet=True)"],
+        cwd=os.path.dirname(os.path.dirname(_HERE)), env=env,
+        capture_output=True, text=True, timeout=60,
+    )
+    assert migrated.returncode == 0, migrated.stderr
+    report = vus.verify_home(str(home), snap)
+    assert report["ok"] is True, vus._render(report)
+    assert report["retired_env_cleared"] == {".env": ["LLM_MODEL", "OPENAI_MODEL"]}
+    assert "OPENROUTER_API_KEY" not in report["retired_env_cleared"][".env"]
+    assert (home / ".env").read_text(encoding="utf-8") == (
+        "LLM_MODEL=\nOPENAI_MODEL=\nOPENROUTER_API_KEY=secret-value\n"
+    )
+    (home / ".env").write_text(
+        "LLM_MODEL=\nOPENAI_MODEL=\nOPENROUTER_API_KEY=\n", encoding="utf-8"
+    )
+    damaged = vus.verify_home(str(home), snap)
+    assert damaged["ok"] is False
+    assert damaged["modified"][".env"]["key_diff"]["keys_changed"] == [
+        "LLM_MODEL", "OPENAI_MODEL", "OPENROUTER_API_KEY"]
+    assert "secret-value" not in json.dumps(damaged)
 
 
 def test_a_retired_var_the_upgrade_empties_is_tolerated_and_named(tmp_path):

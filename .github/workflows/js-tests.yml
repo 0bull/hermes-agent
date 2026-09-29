@@ -32,7 +32,7 @@ jobs:
       - name: Install zsh and a virtual display for Electron
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get install -y zsh xvfb \
+          sudo apt-get install -y zsh xvfb xauth \
             libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 \
             xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2t64
 
@@ -88,3 +88,12 @@ jobs:
       # nothing.
       - name: Run all workspace checks
         run: node .github/scripts/run-workspace-checks.mjs
+
+      - name: Boot packaged Desktop with current and legacy backend READY tokens
+        timeout-minutes: 8
+        run: |
+          HERMES_DESKTOP_SKIP_BUILD=1 \
+          HERMES_DESKTOP_LIFECYCLE_BACKEND_ROOT="$GITHUB_WORKSPACE" \
+          HERMES_DESKTOP_PYTHON="$HERMES_PYTHON" \
+          HERMES_DESKTOP_LIFECYCLE_LEGACY_READY=1 \
+          xvfb-run -a npm run test:desktop:lifecycle --workspace hermes

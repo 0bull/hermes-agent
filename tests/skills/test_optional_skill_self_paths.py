@@ -1,77 +1,59 @@
-"""Contract: a skill's self-referencing install paths match its own location.
+"""Fixture checks for the standalone optional-skill content lint.
 
-The hub installs ``optional-skills/<category>/<name>`` to
-``$HERMES_HOME/skills/<category>/<name>``, preserving the category path.
-When a skill is moved between categories, the install-path strings embedded
-in its own docs and scripts (joined ``skills/<category>/<name>/...`` and the
-segmented ``Path(...) / "skills" / "<category>" / "<name>"`` form) keep
-pointing at the pre-move directory, so every copy-pasteable snippet raises
-FileNotFoundError (#115695). Nothing else catches that drift today; this
-test does, for every optional skill, at CI time.
-
-Only *self*-references are checked (the reference names the skill itself),
-so cross-skill references and foreign-repo paths in port notes are immune.
+Run the whole-tree policy separately:
+    python optional-skills/lint_skill_content.py self-paths
+    python optional-skills/lint_skill_content.py hangul optional-skills/software-development/ast-grep
 """
-import re
+from __future__ import annotations
+
+import subprocess
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-OPTIONAL = REPO / "optional-skills"
-
-# Text formats that carry copy-pasteable install paths; data files can be
-# huge, so cap the scan well above any real doc/script.
-_SCAN_SUFFIXES = {".md", ".py", ".txt", ".sh", ".yaml", ".yml", ".toml", ".json"}
-_MAX_SCAN_BYTES = 2 * 1024 * 1024
+LINT = REPO / "optional-skills" / "lint_skill_content.py"
 
 
-def _skill_roots():
-    roots = {skill_md.parent for skill_md in OPTIONAL.rglob("SKILL.md")}
-    return sorted(roots)
+def _lint(rule, root):
+    return subprocess.run([sys.executable, str(LINT), rule, str(root)],
+                          capture_output=True, text=True, timeout=30)
 
 
-def _scan_files(root):
-    for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in _SCAN_SUFFIXES:
-            continue
-        if path.stat().st_size > _MAX_SCAN_BYTES:
-            continue
-        yield path
+def test_self_paths_lint_fixtures(tmp_path):
+    moved = tmp_path / "new-category" / "moved-skill"
+    moved.mkdir(parents=True)
+    (moved / "SKILL.md").write_text("---\nname: moved-skill\n---\n", encoding="utf-8")
+    notes = moved / "references.md"
+    notes.write_text(
+        'skills/old-category/moved-skill/run.sh\n'
+        'Path("~") / "skills" / "old-category" / "moved-skill" / "script.py"\n'
+        'skills/other-category/other-skill/run.sh\n'
+        'skills/new-category/moved-skill/run.sh\n', encoding="utf-8")
+    bad = _lint("self-paths", tmp_path)
+    assert bad.returncode == 1, bad.stderr
+    assert f"{notes}:1:" in bad.stdout
+    assert f"{notes}:2:" in bad.stdout
+    assert f"{notes}:3:" not in bad.stdout
+    assert f"{notes}:4:" not in bad.stdout
+
+    notes.write_text('skills/other-category/other-skill/run.sh\n'
+                     'skills/new-category/moved-skill/run.sh\n', encoding="utf-8")
+    ok = _lint("self-paths", tmp_path)
+    assert ok.returncode == 0, ok.stdout + ok.stderr
 
 
-def _stale_self_references(root):
-    """Yield (file, line_no, snippet) for self-install paths that cannot resolve."""
-    name = re.escape(root.name)
-    # skills/<category>/<name>/... — joined-string form
-    joined = re.compile(rf"skills/([\w.-]+)/{name}\b")
-    # Path(...) / "skills" / "<category>" / "<name>" — segmented form
-    segmented = re.compile(
-        rf'["\']skills["\']\s*/\s*["\']([\w.-]+)["\']\s*/\s*["\']{name}["\']'
-    )
-    stale = []
-    for path in _scan_files(root):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            continue
-        for line_no, line in enumerate(text.splitlines(), start=1):
-            for match in joined.finditer(line):
-                category = match.group(1)
-                if not (OPTIONAL / category / root.name).is_dir():
-                    stale.append((path.relative_to(REPO), line_no, match.group(0)))
-            for match in segmented.finditer(line):
-                category = match.group(1)
-                if not (OPTIONAL / category / root.name).is_dir():
-                    stale.append((path.relative_to(REPO), line_no, match.group(0)))
-    return stale
-
-
-def test_optional_skills_self_install_paths_resolve_to_their_own_location():
-    offenders = []
-    for root in _skill_roots():
-        offenders.extend(_stale_self_references(root))
-    assert not offenders, (
-        "Optional skills reference their own install path under a category "
-        "that does not match their location (the skill moved, the embedded "
-        "paths did not):\n"
-        + "\n".join(f"  {f}:{line}: {snippet}" for f, line, snippet in offenders)
-    )
+def test_hangul_lint_fixture(tmp_path):
+    reference = tmp_path / "references" / "intro.md"
+    reference.parent.mkdir()
+    reference.write_text("English\n한국어\n", encoding="utf-8")
+    bad = _lint("hangul", tmp_path)
+    assert bad.returncode == 1, bad.stderr
+    assert f"{reference}:2:" in bad.stdout
+    reference.write_text("English\n", encoding="utf-8")
+    installer = tmp_path / "install.ps1"
+    installer.write_text("Write-Output '한국어'\n", encoding="utf-8")
+    powershell = _lint("hangul", tmp_path)
+    assert powershell.returncode == 1
+    assert f"{installer}:1:" in powershell.stdout
+    installer.write_text("Write-Output 'English'\n", encoding="utf-8")
+    assert _lint("hangul", tmp_path).returncode == 0

@@ -6,7 +6,6 @@ import { expect, it, vi } from 'vitest'
 import {
   PACKAGED_MAIN_MODULE,
   READY_TOKENS,
-  assertBackendReadyArtifactSourceAcceptsBothTokens,
   assertPackagedBackendReadyArtifact,
   extractPackagedMainSource,
   resolvePackagedAsarPath
@@ -99,12 +98,6 @@ it('extracts through @electron/asar when no unpacked mirror exists', async () =>
   }
 })
 
-it('the CURRENT source-tree parser itself passes the guard', async () => {
-  // The shipped parser (electron/backend-ready.ts) must satisfy the very
-  // property the packaged bundle is asserted to keep.
-  const { readFile } = await import('node:fs/promises')
-  const backendReady = await readFile(
-    path.resolve(import.meta.dirname, '..', 'electron', 'backend-ready.ts'), 'utf8')
-  expect(() => assertBackendReadyArtifactSourceAcceptsBothTokens(backendReady, 'backend-ready.ts'))
-    .not.toThrow()
-})
+// The executable parser cases live in electron/backend-ready.test.ts (both
+// READY tokens); the packaged binary boot and /api/health probe are exercised
+// by scripts/test-desktop.mjs `lifecycle`, not by parsing this source tree.

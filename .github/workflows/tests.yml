@@ -57,6 +57,10 @@ jobs:
         run: |
           "$HERMES_PYTHON" -c "import sqlite3, sys, hermes_state_wal as w; v = w.is_sqlite_wal_reset_vulnerable(); print(f'Python {sys.version.split()[0]}, SQLite {sqlite3.sqlite_version}, WAL-reset vulnerable: {v}'); sys.exit(1 if v else 0)"
 
+      - name: Check gateway wire catalog completeness
+        run: |
+          "$HERMES_PYTHON" scripts/check_gateway_contracts.py
+
       - name: Restore per-file duration cache
         # scripts/run_tests_parallel.py raises a file's timeout to
         # 3x its last healthy duration (_effective_file_timeout) so a

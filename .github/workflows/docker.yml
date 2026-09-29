@@ -215,6 +215,8 @@ jobs:
           load: true
           platforms: ${{ matrix.platform }}
           tags: ${{ env.IMAGE_NAME }}:test
+          labels: |
+            org.nousresearch.hermes.variant=${{ matrix.variant }}
           build-args: |
             HERMES_BOT_DESKTOP=${{ matrix.variant == 'desktop' && '1' || '0' }}
           # Slim owns the scope; desktop adds the gated apt layer, so it reads

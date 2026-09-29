@@ -1,7 +1,18 @@
 import shared from '../../eslint.config.shared.mjs'
 import globals from 'globals'
 
-export default [
+const nativeTitleRules = [
+  {
+    selector: 'JSXOpeningElement[name.name=/^(button|Button|RowButton)$/] JSXAttribute[name.name="title"]',
+    message: 'Native button titles are unstyled; use <Tip> and aria-label instead.'
+  },
+  {
+    selector: 'JSXOpeningElement[name.name=/^(button|Button|RowButton)$/] JSXSpreadAttribute[argument.type="ObjectExpression"]:has(Property[key.name="title"])',
+    message: 'Do not spread native button titles; use <Tip> and aria-label instead.'
+  }
+]
+
+const config = [
   ...shared,
   {
     // Desktop is an Electron renderer — it legitimately uses browser globals
@@ -54,6 +65,7 @@ export default [
     rules: {
       'no-restricted-syntax': [
         'error',
+        ...nativeTitleRules,
         {
           // useEffect(() => { someRef.current = value }, [value])
           selector:
@@ -89,3 +101,13 @@ export default [
     }
   }
 ]
+
+// JSX fixtures can deliberately demonstrate native-title behaviour; shipped
+// components still receive the complete static rule above.
+const sourceRules = config.at(-1).rules['no-restricted-syntax']
+config.push({
+  files: ['src/**/*.test.tsx', 'src/**/__tests__/**/*.{ts,tsx}'],
+  rules: { 'no-restricted-syntax': sourceRules.filter(rule => !nativeTitleRules.includes(rule)) }
+})
+
+export default config

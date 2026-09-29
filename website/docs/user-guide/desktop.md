@@ -237,6 +237,23 @@ desktop:
 
 The pre-window reader is a small YAML subset, not the full parser the rest of Hermes uses, because it has to run before the app loads anything. Other indentations are valid YAML but are ignored here; when that happens the app logs `desktop.electron_flags / desktop.renderer_max_old_space_mb were ignored` at startup and launches with Chromium's defaults.
 
+#### Ambient animation and GPU load
+
+Focused, idle Hermes windows hold a slice of integrated GPUs (50–69% on the reporter's AMD iGPU) because the ambient decorations — the travelling arc ring, the shimmer sweep, status-dot pulses — composite every frame while the window is visible. Three levels of relief, strongest last:
+
+- **The in-app preference.** Settings → Appearance → General → **Motion and Effects → Reduced** stops the continuous shimmer, gradient, and activity animations app-wide while keeping status indicators visible. It persists across launches and applies at startup.
+- **The OS signal.** Enabling your OS's reduced-motion setting (macOS: System Settings → Accessibility → Display → Reduce motion) pauses the same animations through `prefers-reduced-motion`.
+- **Chromium switches**, for machines that still need more:
+
+  ```yaml
+  desktop:
+    electron_flags: ["--force-prefers-reduced-motion", "--disable-gpu-compositing"]
+  ```
+
+  `--force-prefers-reduced-motion` makes Chromium report the reduced-motion preference to every page, and `--disable-gpu-compositing` takes compositing off the GPU entirely (at a real smoothness cost — prefer the first two options).
+
+  Both switches work on every launch path, including non-CLI launches: the app itself reads `desktop.electron_flags` from `config.yaml` before its first window opens ([#77311](https://github.com/NousResearch/hermes-agent/pull/77311)), so a Windows Start-menu `.lnk` (or a hand-edited shortcut) picks them up with no changes to the shortcut's `Target` line.
+
 ### Settings & onboarding
 
 Manage providers, models, tools, and credentials from a real UI instead of editing YAML. First-run onboarding gets you to your first message in seconds. The settings panes cover providers/keys, model selection, toolset configuration, MCP servers, the gateway, and session management.

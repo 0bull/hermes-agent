@@ -1120,7 +1120,7 @@ def record_pending_desktop_install(*, app: Path, rebuilt_app: Path, asar_hash: s
 def read_pending_desktop_install() -> Optional[dict]:
     """The pending-install record, or None when absent/unreadable."""
     try:
-        return json.loads(pending_desktop_install_path().read_text(encoding="utf-8"))
+        return json.loads(pending_desktop_install_path().read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
         return None
 

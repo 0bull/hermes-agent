@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { DesktopUpdateStatus, DesktopVersionInfo } from '@/global'
 import { I18nProvider, type Locale, TRANSLATIONS, type Translations } from '@/i18n'
 import { en } from '@/i18n/en'
-import { type UpdateApplyState, startActiveUpdate } from '@/store/updates'
+import { startActiveUpdate, type UpdateApplyState } from '@/store/updates'
 
 import { deriveUpdateStatus, VersionHero } from './update-status'
 

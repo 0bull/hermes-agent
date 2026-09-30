@@ -6319,9 +6319,7 @@ describe('usePromptActions transport-loss submit reconcile (#123079)', () => {
       busyAfter: states.at(-1),
       calls,
       states,
-      submittedCard: states.some(state =>
-        (state.messages as Array<{ error?: string }>).some(message => message.error)
-      )
+      submittedCard: states.some(state => (state.messages as Array<{ error?: string }>).some(message => message.error))
     }
   }
 
@@ -6347,6 +6345,7 @@ describe('usePromptActions transport-loss submit reconcile (#123079)', () => {
 
   it('falls through to a retryable streaming card when the probe never answers', async () => {
     vi.useFakeTimers()
+
     try {
       const states: Record<string, unknown>[] = []
 

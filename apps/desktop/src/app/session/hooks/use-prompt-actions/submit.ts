@@ -49,11 +49,7 @@ import type { CreateBackendSessionForSend } from '../use-session-actions/create-
 import { resolveSessionProfile } from '../use-session-actions/utils'
 
 import { registerRecoveredRuntime, singleFlightSessionResume, takeRecoveredRuntime } from './single-flight-resume'
-import {
-  reconcileTransportLostTurn,
-  TRANSPORT_CLOSED_ERROR_SURFACE,
-  isTransportLossError
-} from './transport-loss'
+import { isTransportLossError, reconcileTransportLostTurn, TRANSPORT_CLOSED_ERROR_SURFACE } from './transport-loss'
 import {
   acquireSubmitInFlight,
   type GatewayRequest,

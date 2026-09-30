@@ -1,6 +1,6 @@
 import { type ErrorSurface } from '@/lib/error-surface'
 
-import { type GatewayRequest, delay } from './utils'
+import { delay, type GatewayRequest } from './utils'
 
 /**
  * #123079: `prompt.submit` is deliberately unbounded (PROMPT_SUBMIT_REQUEST_

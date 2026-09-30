@@ -177,6 +177,37 @@ def test_source_launch_reads_bom_electron_path_without_provisioning(tmp_path, mo
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize("local", [False, True])
+def test_source_launch_applies_configured_electron_flags(tmp_path, monkeypatch, local):
+    """>#82960: ``desktop.electron_flags`` reached only the packaged and bundled
+    launch paths; the source-mode launch dropped them, so ``--source`` silently
+    ignored the config a user set to work around GPU/driver bugs."""
+    root = _make_desktop_tree(tmp_path)
+    desktop = root / "apps" / "desktop"
+    (desktop / "dist").mkdir()
+    (desktop / "dist" / "index.html").write_text("prepared renderer", encoding="utf-8")
+    electron = root / "node_modules" / "electron"
+    (electron / "dist").mkdir(parents=True)
+    (electron / "package.json").write_text("{}", encoding="utf-8")
+    executable = electron / "dist" / "électron"
+    executable.touch()
+    (electron / "path.txt").write_text(executable.name + "\n", encoding="utf-8-sig")
+    monkeypatch.setattr(cli_main, "PROJECT_ROOT", root)
+    monkeypatch.setattr(main_desktop, "_desktop_launch_env", lambda args: ({}, ["--disable-gpu", "--ozone-platform=x11"]))
+    monkeypatch.setattr(main_desktop, "_register_linux_desktop_entry", lambda **kw: None)
+    calls = []
+    monkeypatch.setattr(main_desktop.subprocess, "run",
+                        lambda cmd, **kw: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0))
+    args = _ns(source=True, skip_build=True, local=local)
+    with pytest.raises(SystemExit) as exit_info:
+        main_desktop.cmd_gui(args)
+    assert exit_info.value.code == 0
+    # Flags land after the executable + ".", before the --local tail — exactly
+    # where the packaged path (launch_command.extend(config_electron_flags)) puts them.
+    assert calls == [[str(executable), ".", "--disable-gpu", "--ozone-platform=x11",
+                      *(["--local"] if local else [])]]
+
+
 def _stamped_macos_bundle(app: Path, asar: bytes) -> Path:
     (app / "Contents" / "MacOS").mkdir(parents=True)
     (app / "Contents" / "MacOS" / "Hermes").write_bytes(b"\xcf\xfa\xed\xfe")

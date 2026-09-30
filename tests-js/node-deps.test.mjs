@@ -189,22 +189,36 @@ test('npm configuration name casing does not invalidate a completed install', as
 }, 30000)
 
 // A stand-in npm: `ci` fails with ENOTEMPTY (or `failure`) while a stuck
-// node_modules/.bin entry survives, and records every ci run.
+// node_modules/.bin entry survives, and records every ci run. With
+// `winstaller` it instead emits electron-winstaller's Windows-only install
+// script crash (#82960) on every scripted run and records argv per run.
 function fakeNpm(root, failure) {
   const [, realCli] = npmCommand()
   const dir = join(root, 'fake-npm')
   mkdirSync(join(dir, 'node_modules'), { recursive: true })
   symlinkSync(dirname(createRequire(realCli).resolve('semver/package.json')), join(dir, 'node_modules/semver'), 'junction')
   const cli = join(dir, 'npm-cli.js')
+  // winstaller: emit electron-winstaller's Windows-only install-script crash
+  // (#82960) on every scripted ci run. Otherwise: fail while a stuck
+  // node_modules/.bin entry survives. Both record their argv per ci/rebuild.
+  const failureBody = failure === 'winstaller'
+    ? `if (args[0] === 'ci' && !args.includes('--ignore-scripts')) {`
+      + `\n  const logs = args.find(arg => arg.startsWith('--logs-dir=')).slice('--logs-dir='.length)`
+      + `\n  fs.writeFileSync(path.join(logs, 'debug-0.log'), "npm error command sh -c node ./script/select-7z-arch.js\\nnpm error electron-winstaller ENOENT: no such file or directory, copyfile 'vendor/7z-x64.exe' -> 'vendor/7z.exe'\\n")`
+      + `\n  process.exit(1)`
+      + `\n}`
+    : `if (fs.existsSync('node_modules/.bin/stuck')) {`
+      + `\n  const logs = args.find(arg => arg.startsWith('--logs-dir=')).slice('--logs-dir='.length)`
+      + `\n  fs.writeFileSync(path.join(logs, 'debug-0.log'), 'error code ${failure}\\n')`
+      + `\n  process.exit(1)`
+      + `\n}`
   writeFileSync(cli, `const fs = require('fs'), path = require('path')
 const args = process.argv.slice(2)
 if (args[0] === '--version') { console.log('10.9.0'); process.exit(0) }
-fs.appendFileSync(path.join(${JSON.stringify(root)}, 'ci-runs'), 'ci\\n')
-if (fs.existsSync('node_modules/.bin/stuck')) {
-  const logs = args.find(arg => arg.startsWith('--logs-dir=')).slice('--logs-dir='.length)
-  fs.writeFileSync(path.join(logs, 'debug-0.log'), 'error code ${failure}\\n')
-  process.exit(1)
-}
+${failure === 'winstaller'
+  ? `if (args[0] === 'ci' || args[0] === 'rebuild') fs.appendFileSync(path.join(${JSON.stringify(root)}, 'ci-runs'), args.filter(arg => !arg.startsWith('--logs-dir=')).join(' ') + ${JSON.stringify('\n')})`
+  : `if (args[0] === 'ci') fs.appendFileSync(path.join(${JSON.stringify(root)}, 'ci-runs'), 'ci' + ${JSON.stringify('\n')})`}
+${failureBody}
 `)
   return { ...process.env, npm_execpath: cli }
 }
@@ -230,6 +244,29 @@ test('any other npm ci failure keeps node_modules and does not retry', async () 
   expect(() => prepareNodeDependencies({ source, workspaces: ['web'], env: fakeNpm(source, 'EINTEGRITY') })).toThrow()
   expect(readFileSync(join(source, 'ci-runs'), 'utf8')).toBe('ci\n')
   expect(existsSync(join(source, 'node_modules/.bin/stuck'))).toBe(true)
+}, 30000)
+
+test.skipIf(process.platform === 'win32')('an electron-winstaller install-script crash retries once with --ignore-scripts and refills electron + esbuild', async () => {
+  const { prepareNodeDependencies } = await import('../scripts/build/node-deps.mjs')
+  const source = fixture()
+  prepareNodeDependencies({ source, workspaces: ['web'], env: fakeNpm(source, 'winstaller') })
+  // Exactly one scripted ci run, retried once with --ignore-scripts, then the
+  // install-script refills npm rebuild re-runs.
+  const runs = readFileSync(join(source, 'ci-runs'), 'utf8').trim().split('\n').filter(Boolean).map(run => run.split(' '))
+  expect(runs.filter(run => run[0] === 'ci')).toHaveLength(2)
+  expect(runs[1]).toContain('--ignore-scripts')
+  expect(runs.filter(run => run[0] === 'rebuild' && run[1] === 'electron')).toHaveLength(1)
+  expect(runs.filter(run => run[0] === 'rebuild' && run[1] === 'esbuild')).toHaveLength(1)
+}, 30000)
+
+test.skipIf(process.platform === 'win32')('an ENOENT from anything but electron-winstaller takes no --ignore-scripts retry', async () => {
+  const { prepareNodeDependencies } = await import('../scripts/build/node-deps.mjs')
+  const source = fixture()
+  stuckNodeModules(source)
+  expect(() => prepareNodeDependencies({ source, workspaces: ['web'], env: fakeNpm(source, 'EENOENT') })).toThrow()
+  const runs = readFileSync(join(source, 'ci-runs'), 'utf8').trim().split('\n').filter(Boolean).map(run => run.split(' '))
+  expect(runs.filter(run => run[0] === 'ci')).toHaveLength(1)
+  expect(runs.some(run => run.includes('--ignore-scripts'))).toBe(false)
 }, 30000)
 
 // A fake npm whose version probes die but whose ci succeeds: the Job-Object

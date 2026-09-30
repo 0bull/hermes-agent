@@ -60,24 +60,77 @@ function completedInstallMatches({ source, receipt, hiddenLock, key, nativeKey }
     .every(path => existsSync(join(source, path)))
 }
 
-// An interrupted Windows update can leave a nested .bin that npm ci's own rmdir
-// cannot clear (ENOTEMPTY, #75584); only deleting node_modules recovers it. npm's
-// debug log names the code while stdio stays on the terminal, so give each run
-// its own logs dir and retry once only on that code. Other failures keep the tree.
-function runNpmCi(node, npm, args, { source, env }) {
+// An interrupted Windows update can leave a nested .bin that npm ci's own
+// rmdir cannot clear (ENOTEMPTY, #75584); only deleting node_modules recovers
+// it. npm's debug log names the code while stdio stays on the terminal, so
+// give each run its own logs dir and retry once only on that code. Other
+// failures keep the tree.
+//
+// electron-winstaller's install script (select-7z-arch.js) copies a
+// Windows-only vendored 7z.exe with no `os` guard; on a non-Windows host
+// whose mirror stripped the .exe it dies with ENOENT and fails the whole
+// npm ci (#82960). npm 10 — allowed by engines.npm — ignores allowScripts,
+// so the package.json denial cannot save those hosts: the failure is
+// detected from the same logs and retried once with --ignore-scripts, then
+// the install scripts in REFILL_INSTALL_SCRIPTS are re-run via `npm rebuild`
+// for the payloads an --ignore-scripts install skipped.
+const WININSTALLER_UNIX_SIGNATURES = ['select-7z-arch.js', '7z-x64.exe', '7z-arm64.exe']
+
+// The install scripts an --ignore-scripts retry must re-run afterwards
+// (see runNpmCi): exactly the packages whose scripts produce a payload the
+// extracted package does not already carry. electron and esbuild both run
+// `node install.js` postinstalls — electron downloads its dist/ binary,
+// esbuild stages the platform binary from @esbuild/<platform>. Everything
+// else needs nothing: node-pty's prebuilds/ ship inside its tarball,
+// fsevents' compiled fsevents.node ships in its tarball (no install
+// script at all), and get-windows is inert on non-win32 (the desktop
+// stages a JS shim, #90829). A blanket `npm rebuild` of every
+// script-bearing package would re-run node-gyp fallbacks that fail on
+// hosts the packages never supported.
+const REFILL_INSTALL_SCRIPTS = ['electron', 'esbuild']
+
+function refillScripts() {
+  return REFILL_INSTALL_SCRIPTS
+}
+
+function runNpmCi(node, npm, args, { source, env, rebuildScripts }) {
   const logsDir = mkdtempSync(join(tmpdir(), 'hermes-npm-logs-'))
   // Builders set CI=1, which turns npm's spinner off. Ask for it back: npm
   // still shows it only on a terminal. Kept out of `args`, which keys the receipt.
   const run = () => execFileSync(node, [npm, ...args, '--progress=true', `--logs-dir=${logsDir}`],
     { cwd: source, env, stdio: 'inherit' })
+  const logText = () => {
+    try {
+      return readdirSync(logsDir).map(name => readFileSync(join(logsDir, name), 'utf8')).join('\n')
+    } catch {
+      return ''
+    }
+  }
   try {
-    run()
-  } catch (error) {
-    const logged = readdirSync(logsDir).some(name => readFileSync(join(logsDir, name), 'utf8').includes('ENOTEMPTY'))
-    if (!logged) throw error
-    console.log('node-deps: npm ci hit ENOTEMPTY; removing node_modules and retrying once...')
-    rmSync(join(source, 'node_modules'), { recursive: true, force: true, maxRetries: 3 })
-    run()
+    try {
+      run()
+    } catch (error) {
+      const logged = logText()
+      if (logged.includes('ENOTEMPTY')) {
+        console.log('node-deps: npm ci hit ENOTEMPTY; removing node_modules and retrying once...')
+        rmSync(join(source, 'node_modules'), { recursive: true, force: true, maxRetries: 3 })
+        run()
+        return
+      }
+      if (process.platform !== 'win32'
+        && logged.includes('electron-winstaller')
+        && WININSTALLER_UNIX_SIGNATURES.some(signature => logged.includes(signature))) {
+        console.log('node-deps: npm ci hit electron-winstaller\'s Windows-only install script; retrying with --ignore-scripts...')
+        execFileSync(node, [npm, ...args, '--ignore-scripts', '--progress=true', `--logs-dir=${logsDir}`],
+          { cwd: source, env, stdio: 'inherit' })
+        for (const pkg of rebuildScripts ?? []) {
+          execFileSync(node, [npm, 'rebuild', pkg, '--progress=true', `--logs-dir=${logsDir}`],
+            { cwd: source, env, stdio: 'inherit' })
+        }
+        return
+      }
+      throw error
+    }
   } finally {
     rmSync(logsDir, { recursive: true, force: true })
   }
@@ -144,7 +197,7 @@ export function prepareNodeDependencies({ source, workspaces, env = process.env,
   rmSync(receipt, { force: true })
   rmSync(nativeReceipt, { force: true })
   console.log(`node-deps: installing workspace dependencies with npm ci (${selected.join(', ')})...`)
-  runNpmCi(node, npm, args, { source, env })
+  runNpmCi(node, npm, args, { source, env, rebuildScripts: refillScripts() })
   if (reuse) {
     const completed = `${key}\n${createHash('sha256').update(readFileSync(hiddenLock)).digest('hex')}\n`
     writeFileSync(receipt, completed)

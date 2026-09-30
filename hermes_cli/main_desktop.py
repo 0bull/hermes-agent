@@ -1884,6 +1884,9 @@ def cmd_gui(args: argparse.Namespace):
             print(f"✗ Prepared Electron runtime is missing: {exc}")
             raise SystemExit(1) from exc
         launch_command = [str(executable), "."]
+        # Sibling launch paths (packaged 1713, bundled _launch_bundled_desktop)
+        # both apply desktop.electron_flags; --source must not drop them (#82960).
+        launch_command.extend(config_electron_flags)
     else:
         if packaged_executable is None:
             print(f"✗ Desktop package build completed but no launchable app was found at: {desktop_dir / 'release'}")

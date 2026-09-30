@@ -46,6 +46,9 @@ interface CatalogBrowserProps {
   isInstalled: (entry: CatalogEntry) => boolean
   onInstall: (entry: CatalogEntry) => void
   isInstalling?: (entry: CatalogEntry) => boolean
+  /** Feed rows the caller drops from the list entirely (e.g. a community
+   *  lookalike whose name is taken by an installed skill). */
+  isSuperseded?: (entry: CatalogEntry) => boolean
   installedEntries?: CatalogEntry[]
   matchInstalled?: (entry: CatalogEntry) => CatalogEntry | undefined
   actions?: ReactNode
@@ -108,6 +111,7 @@ export const CatalogBrowser = memo(function CatalogBrowser({
   isInstalled,
   onInstall,
   isInstalling,
+  isSuperseded,
   installedEntries,
   matchInstalled,
   actions,
@@ -161,12 +165,13 @@ export const CatalogBrowser = memo(function CatalogBrowser({
   useEffect(() => (CATALOG_POINTER_ENABLED && root.current ? trackCatalogPointer(root.current) : undefined), [])
 
   const entries = mergeInstalled(data ?? [], installedEntries ?? [], matchInstalled)
-  const filtered = sortCatalog(filterCatalog(entries, facets, deferredQuery, isInstalled), sort, kind)
+  const visible = isSuperseded ? entries.filter(entry => !isSuperseded(entry)) : entries
+  const filtered = sortCatalog(filterCatalog(visible, facets, deferredQuery, isInstalled), sort, kind)
 
   const discover = !facets.sources.length && !facets.categories.length && !facets.tags.length && !deferredQuery && !facets.installedOnly
   const pageOrder = filtered
 
-  const selected = entries.find(entry => entry.id === selectedId) ?? filtered[0]
+  const selected = visible.find(entry => entry.id === selectedId) ?? filtered[0]
   const related = selected && (!cardView || detailOpen) ? relatedEntries(filtered, selected, 3) : []
 
   const searchFor = (value: string) => {
@@ -254,7 +259,7 @@ export const CatalogBrowser = memo(function CatalogBrowser({
         <SelectValue placeholder={c.sortBy} />
       </SelectTrigger>
       <SelectContent>
-        {catalogSortOptions(entries, kind, sortLabels).map(({ value, label }) => (
+        {catalogSortOptions(visible, kind, sortLabels).map(({ value, label }) => (
           <SelectItem key={value} value={value}>
             {label}
           </SelectItem>

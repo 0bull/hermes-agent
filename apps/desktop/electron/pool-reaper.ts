@@ -49,11 +49,13 @@ export function partitionIdleReapable(
   for (const [profile, entry] of entries) {
     if (!entry.process) {
       sparedRemote.push(profile)
+
       continue
     }
 
     const idleFor = now - (entry.lastActiveAt || 0)
     const streamedIdleFor = entry.lastStreamedAt ? now - entry.lastStreamedAt : null
+
     const reapable =
       idleFor > idleMs || (pinnedIdleMs !== undefined && streamedIdleFor !== null && streamedIdleFor > pinnedIdleMs)
 

@@ -5,6 +5,7 @@ import { partitionIdleReapable } from './pool-reaper'
 describe('partitionIdleReapable', () => {
   it('reaps local backends idle beyond the limit', () => {
     const now = 1_000_000
+
     const entries: Array<[string, { process: object; lastActiveAt: number }]> = [
       ['alpha', { process: {}, lastActiveAt: now - 700_000 }]
     ]
@@ -17,6 +18,7 @@ describe('partitionIdleReapable', () => {
 
   it('never idle-reaps remote descriptors (no local process)', () => {
     const now = 1_000_000
+
     const entries: Array<[string, { process: null; lastActiveAt: number }]> = [
       ['remote-profile', { process: null, lastActiveAt: now - 86_400_000 }]
     ]
@@ -29,6 +31,7 @@ describe('partitionIdleReapable', () => {
 
   it('spares local backends still within the idle window', () => {
     const now = 1_000_000
+
     const entries: Array<[string, { process: object; lastActiveAt: number }]> = [
       ['busy', { process: {}, lastActiveAt: now - 60_000 }]
     ]
@@ -40,6 +43,7 @@ describe('partitionIdleReapable', () => {
 
   it('partitions a mixed pool correctly', () => {
     const now = 1_000_000
+
     const entries: Array<[string, { process: object | null; lastActiveAt: number }]> = [
       ['local-idle', { process: {}, lastActiveAt: now - 900_000 }],
       ['local-active', { process: {}, lastActiveAt: now - 5_000 }],
@@ -58,6 +62,7 @@ describe('partitionIdleReapable', () => {
     // The reaper must spare the descriptor regardless of how long it idled —
     // dead remotes are the liveness revalidator's call, not the timer's.
     const now = Number(Date.now())
+
     const entries: Array<[string, { process: object | null; lastActiveAt: number }]> = [
       ['conn:local::default', { process: null, lastActiveAt: now - 24 * 60 * 60_000 }],
       ['conn:remote-host::inbox', { process: null, lastActiveAt: now - 60 * 60_000 }],

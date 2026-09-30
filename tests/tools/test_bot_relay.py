@@ -298,19 +298,22 @@ def test_roster_rejects_connection_id_outside_handle_charset(root):
     assert bot_relay.write_remote_roster(root, [good]) == 1
 
 
-def test_hostile_roster_fields_ride_as_argv_data(root):
+def test_hostile_roster_fields_ride_as_argv_data(root, monkeypatch):
     """Envelope fields come from the Desktop-pushed roster — untrusted. They must never become
     source text: the waiter takes them as argv, so a payload shaped like Python is a label."""
     import shlex
     import subprocess
 
+    # The real waiter runs below; the launcher form would select dependencies from the sandbox
+    # HERMES_HOME, which has none. The script form keeps this test about argv, not install state.
+    monkeypatch.setattr(bot_relay, "_published_launcher", lambda: None)
     inj = "x'); open(r'/tmp/pwned','w').write('pwned'); print('x"
     env = {"id": "c" * 32, "target_handle": "researcher", "target_connection": inj}
     cmd = bot_relay.waiter_command(root, env)
     parts = shlex.split(cmd)
 
     assert "-c" not in parts
-    assert parts[4] == f"@researcher on {inj}"
+    assert parts[parts.index("--wait-reply") + 2] == f"@researcher on {inj}"
     reply_path = bot_relay.relay_root(root) / bot_relay.REPLIES_DIR / f"{env['id']}.json"
     reply_path.parent.mkdir(parents=True, exist_ok=True)
     reply_path.write_text(json.dumps({"reply": "pong"}), encoding="utf-8")

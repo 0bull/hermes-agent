@@ -26,6 +26,12 @@ def _fresh_probe_cache():
     bot_mode_probe._reset_cache_for_tests()
 
 
+def _pin_script_runner(monkeypatch) -> None:
+    """Real-subprocess runner tests exercise argv round-trips. The launcher form selects
+    dependencies from HERMES_HOME's root, which is an empty sandbox under pytest."""
+    monkeypatch.setattr(bot_relay, "_published_launcher", lambda: None)
+
+
 def _managed_home(tmp_path, *, teammates=("researcher",), peers=()) -> Path:
     home = tmp_path / ".hermes"
     home.mkdir(exist_ok=True)
@@ -821,8 +827,9 @@ def test_delivery_main_child_env_carries_only_the_argv_author(tmp_path, monkeypa
     assert not dm_file.exists()
 
 
-def test_real_delivery_command_round_trip_carries_author(tmp_path):
+def test_real_delivery_command_round_trip_carries_author(tmp_path, monkeypatch):
     """Through a real subprocess, the runner argv built by ``_delivery_command`` sets HERMES_TURN_AUTHOR on the child."""
+    _pin_script_runner(monkeypatch)
     dm_file = tmp_path / "message.txt"
     dm_file.write_text("secret", encoding="utf-8")
     observed = tmp_path / "observed.txt"
@@ -879,7 +886,8 @@ def test_local_turn_decodes_utf8_reply_without_locale_default(tmp_path, monkeypa
 
 
 @pytest.mark.parametrize("stdin_file", [False, True])
-def test_real_delivery_command_round_trip(tmp_path, stdin_file):
+def test_real_delivery_command_round_trip(tmp_path, monkeypatch, stdin_file):
+    _pin_script_runner(monkeypatch)
     dm_file = tmp_path / "message with spaces.txt"
     dm_file.write_text("secret λ\nsecond line", encoding="utf-8")
     observed = tmp_path / "observed with spaces.txt"

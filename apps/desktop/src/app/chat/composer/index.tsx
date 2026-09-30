@@ -385,6 +385,7 @@ export function ChatBar({
     onSubmit,
     queueEditRef,
     queueSessionKey,
+    readLiveText: syncDraftFromEditor,
     sessionId
   })
 

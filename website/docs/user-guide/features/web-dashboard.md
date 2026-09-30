@@ -1151,10 +1151,10 @@ The dashboard reads and writes your `.env` (API keys, secrets) and can run agent
 
 ### In Hermes Desktop
 
-Desktop connects through the multi-connection registry, not a dedicated "Remote gateway" form: **Settings → Gateways → Registered gateways → Add connection → Remote gateway**. Authentication offers exactly two controls — **Session token** or **OAuth** — and there are no separate username/password fields on the form:
+Desktop connects through the multi-connection registry, not a dedicated "Remote gateway" form: **Settings → Gateways → Registered gateways → Add connection → Remote gateway**. Authentication offers exactly two controls — **Session token** or **Sign in** — and there are no separate username/password fields on the form:
 
 - **Session token** — paste the dashboard session token used for REST and WebSocket access. When editing a saved connection, leave the field blank to keep its existing token.
-- **OAuth** — the app probes the gateway's advertised providers. A username/password-only backend makes the action the generic **Sign in**, which opens the credential flow (the credentials from step 1); an OAuth backend gets **Sign in with `<provider>`** for its browser flow.
+- **Sign in** (the OAuth path) — the app probes the gateway's advertised providers and labels the action accordingly: a username/password-only backend keeps the generic **Sign in** label, which opens the credential flow (the credentials from step 1); an OAuth backend gets **Sign in with `<provider>`** for its browser flow.
 
 The full walkthrough (naming, probing, the fail-open identity-provider label, and the **Test** button) is in [Desktop → Connecting to a remote backend](../desktop.md#connecting-to-a-remote-backend).
 
@@ -1172,7 +1172,7 @@ Instead of the in-app setting, you can point the desktop at a backend with an en
 
 - **"Remote gateway incomplete"** — you haven't entered a remote URL.
 - **Sign-in fails with 401 / "Invalid credentials"** — the username or password doesn't match the backend's `HERMES_DASHBOARD_BASIC_AUTH_USERNAME` / `HERMES_DASHBOARD_BASIC_AUTH_PASSWORD`. The backend returns the same generic error for unknown user and wrong password, so check both. Confirm the gate with `curl -s http://<host>:9119/api/status | jq '.auth_required, .auth_providers'` — it should report `true` and include `"basic"`.
-- **No generic `Sign in` action — the label says "Sign in with your identity provider" instead** — the provider probe failed or returned no providers, so the app kept the fail-open identity-provider label rather than guessing password auth. Check the URL and reachability, then re-open the editor. (The username/password provider being *active* is what makes the OAuth action the password `Sign in` flow once the probe succeeds.)
+- **No generic `Sign in` action — the label says "Sign in with your identity provider" instead** — the provider probe failed or returned no providers, so the app kept the fail-open identity-provider label rather than guessing password auth. Check the URL and reachability, then re-open the editor. (The username/password provider being *active* is what keeps the **Sign in** action on the password flow once the probe succeeds.)
 - **Signed out on every restart** — set `HERMES_DASHBOARD_BASIC_AUTH_SECRET` to a stable value; otherwise the signing key is regenerated per boot.
 - **Connection refused / times out** — the backend bound to `127.0.0.1` (the default) instead of a reachable address, or a firewall/VPN is blocking the port. Bind to `0.0.0.0` or the tailscale IP and open the port to your trusted network.
 

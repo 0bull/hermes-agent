@@ -530,20 +530,22 @@ choose **Remote gateway**:
 1. Enter a unique **Name** and the **Gateway URL**, such as
    `http://<backend-host>:9119` (reverse-proxy path prefixes such as `/hermes`
    work).
-2. Under **Authentication**, choose **Session token** or **OAuth**. These are
+2. Under **Authentication**, choose **Session token** or **Sign in**. These are
    the only two controls. The registry does not expose separate username or password fields.
    - **Session token** — paste the dashboard session token used for REST and
      WebSocket access. When editing a saved connection, leave the field blank
      to keep its existing token.
-   - **OAuth** — the app probes the entered gateway URL for its advertised
-     providers. A normal OAuth provider gets **Sign in with `<provider>`** and
-     opens its browser flow. If every advertised provider is a password-only provider,
-     the action becomes the generic **Sign in** action and opens the
-     username/password flow. If the probe fails or returns no providers, the
-     app retains **Sign in with your identity provider**; it does not assume
+   - **Sign in** (the OAuth path) — the app probes the entered gateway URL for
+     its advertised providers and labels the action accordingly: a normal
+     OAuth provider gets **Sign in with `<provider>`** and opens its browser
+     flow. If every advertised provider is a password-only provider, the
+     action stays the generic **Sign in** and opens the username/password
+     flow. If the probe fails or returns no providers, the label stays
+     **Sign in with your identity provider**; the app does not assume
      password auth or invent username/password fields in the registry.
-3. Complete sign-in when using OAuth, then click **Save connection**. Use
-   **Test** on the saved row to verify both its HTTP and WebSocket legs.
+3. Complete sign-in when using the **Sign in** option, then click
+   **Save connection**. Use **Test** on the saved row to verify both its HTTP
+   and WebSocket legs.
 
 You can also set the backend URL without the UI via the `HERMES_DESKTOP_REMOTE_URL` environment variable before launching the app (it overrides the in-app setting); you still sign in from the Gateways settings panel.
 
@@ -556,8 +558,8 @@ rewrite the saved gateway URL or authentication method.
 ### Troubleshooting
 
 - **Sign-in fails with 401 / "Invalid credentials"** — the username or password doesn't match the backend's `HERMES_DASHBOARD_BASIC_AUTH_USERNAME` / `HERMES_DASHBOARD_BASIC_AUTH_PASSWORD`. The backend returns the same generic error for an unknown user and a wrong password (no enumeration oracle), so double-check both. Confirm the gate is on with `curl -s http://<host>:9119/api/status | jq '.auth_required, .auth_providers'` — it should report `true` and include `"basic"`.
-- **OAuth shows “Sign in with your identity provider”** — provider probing failed or the gateway advertised no providers. This is a fail-open label fallback: the app keeps the generic identity-provider OAuth path instead of guessing that the gateway uses password auth. Check the URL and reachability, then retry; no username/password fields should appear in the registry.
-- **Expected a username/password prompt** — select **OAuth**, not **Session token**, and check that the entered gateway advertises only password-based providers (for the built-in provider, `/api/status` includes `"basic"` in `auth_providers`). The registry then shows the generic **Sign in** action, which opens the credential flow. If any advertised provider is not password-based, the provider-labelled OAuth path is retained.
+- **The sign-in label says “Sign in with your identity provider”** — provider probing failed or the gateway advertised no providers. This is a fail-open label fallback: the app keeps the generic identity-provider sign-in path instead of guessing that the gateway uses password auth. Check the URL and reachability, then retry; no username/password fields should appear in the registry.
+- **Expected a username/password prompt** — pick **Sign in** (not **Session token**), and check that the entered gateway advertises only password-based providers (for the built-in provider, `/api/status` includes `"basic"` in `auth_providers`). The action then stays the generic **Sign in**, which opens the credential flow. If any advertised provider is not password-based, the provider-labelled sign-in path is used.
 - **Signed out on every restart** — set `HERMES_DASHBOARD_BASIC_AUTH_SECRET` to a stable value. Without it the token-signing key is regenerated per boot, invalidating all sessions.
 - **Connection refused / times out** — the backend bound to `127.0.0.1` (the default) or a firewall/VPN is blocking the port. Bind to `0.0.0.0` or the tailscale IP and open the port to your trusted network.
 

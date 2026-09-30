@@ -847,10 +847,15 @@ def drift(*, include_venv: bool = True) -> dict[str, str]:
         # minor than PM's pinned one imports pure-Python modules fine and then dies
         # on the first C extension (`import _ssl` → os error 32) — a wrong-Python
         # venv must read as a wrong-Python venv, not a mystery install error.
+        # Diagnostics never raise: unreadable facts or a missing venv are already
+        # reported above; the version probe must degrade to silence, not guess.
         from pm.environments import pinned_python_version, selected_venv, venv_python_version
 
-        pinned = pinned_python_version(paths.repo_root())
-        actual = venv_python_version(selected_venv(paths.repo_root()))
+        try:
+            pinned = pinned_python_version(paths.repo_root())
+            actual = venv_python_version(selected_venv(paths.repo_root()))
+        except (OSError, RuntimeError, ValueError):
+            pinned = actual = None
         if pinned is not None and actual is not None and pinned != actual:
             problems["venv"] = (
                 f"built for Python {actual[0]}.{actual[1]} but this install pins "

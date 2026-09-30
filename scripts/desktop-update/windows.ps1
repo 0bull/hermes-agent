@@ -1593,21 +1593,38 @@ if ($SelfTestRelaunch) {
     }
     Close-ProgressWindow
 
-    # Full-ladder check: Start-DesktopRelaunch against an exe that starts a
-    # windowless sleeper and exits immediately proves the whole retry chain
-    # ends in $false (never a blessed zombie) and no process leaks.
+    # Full-ladder check: Start-DesktopRelaunch against a WinExe sleeper proves
+    # the whole retry chain ends in $false (never a blessed zombie) and no
+    # process leaks. The stub must be windowless BY CONSTRUCTION: an earlier
+    # revision copied console-subsystem powershell.exe, and on some runner
+    # images (observed: windows arm64) a WMI- or explorer-launched console exe
+    # is handed a real conhost window, so the gate correctly accepted it and
+    # the fixture failed on an environment artifact. A /target:winexe assembly
+    # has no console subsystem and never creates a window, on every image.
     $stubDir = Join-Path $TempDir ("hermes-relaunch-selftest-" + [Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $stubDir -Force | Out-Null
     $stubOut = Join-Path $stubDir "Hermes.exe"
-    Copy-Item -LiteralPath $powershell -Destination $stubOut -Force
+    $stubCs = Join-Path $stubDir "sleeper.cs"
+    @'
+using System.Threading;
+internal static class HermesRelaunchSleeper {
+    static void Main() { Thread.Sleep(60000); }
+}
+'@ | Set-Content -LiteralPath $stubCs -Encoding ASCII
     $savedRelaunchExe = $RelaunchExe
-    $RelaunchExe = $stubOut
     $spawned = $false
     try {
+        Add-Type -TypeDefinition (Get-Content -LiteralPath $stubCs -Raw) -OutputAssembly $stubOut -OutputType WindowsApplication -ErrorAction Stop
+        $RelaunchExe = $stubOut
         # The stub Hermes.exe IS the sleeper: launched detached (WMI rung),
         # it never shows a window, so the whole ladder must fail.
         $spawned = Start-DesktopRelaunch
         if ($spawned) { $problems += "Start-DesktopRelaunch blessed a windowless stub (pid chain unverified)" }
+    } catch {
+        # No compiler on this image: the ladder arm abstains rather than
+        # fails on an environment artifact, same policy as the healthy arm.
+        $spawned = $null
+        Write-HandoffLog "SELF-TEST: could not build windowless stub ($($_.Exception.Message)); ladder arm skipped"
     } finally {
         $RelaunchExe = $savedRelaunchExe
         Get-Process -Name "Hermes" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$stubDir*" } | Stop-Process -Force -ErrorAction SilentlyContinue

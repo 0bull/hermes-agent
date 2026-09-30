@@ -27,7 +27,7 @@ import { IncrementalExternalStoreRuntimeCore } from './incremental-external-stor
 const STATUS = getAutoStatus(false, false, false, false, undefined)
 const RUNNING_STATUS = { type: 'running' } as const
 
-function message(id: string, text: string, status: typeof STATUS | RUNNING_STATUS = STATUS): ThreadMessage {
+function message(id: string, text: string, status: typeof STATUS | typeof RUNNING_STATUS = STATUS): ThreadMessage {
   return fromThreadMessageLike({ role: 'assistant', content: [{ type: 'text', text }] }, id, status)
 }
 
@@ -63,7 +63,12 @@ function visibleText(core: IncrementalExternalStoreRuntimeCore): string[] {
   const messages = (thread as unknown as { _messages: readonly ThreadMessage[] })._messages
 
   return messages
-    .map(item => item.content.filter(part => part.type === 'text').map(part => (part as { text: string }).text).join(''))
+    .map(item =>
+      item.content
+        .filter(part => part.type === 'text')
+        .map(part => (part as { text: string }).text)
+        .join('')
+    )
     .filter(text => text !== '')
 }
 
@@ -72,9 +77,7 @@ describe('adapter sync keeps the live streamed tail when a mid-run snapshot omit
     const user = userMessage('u1', 'question')
     const streamedTail = message('a-stream', 'partial answer streamed so far', RUNNING_STATUS)
 
-    const core = new IncrementalExternalStoreRuntimeCore(
-      adapterWith(repositoryOf([user, streamedTail]), 'a-stream')
-    )
+    const core = new IncrementalExternalStoreRuntimeCore(adapterWith(repositoryOf([user, streamedTail], 'a-stream')))
 
     // Mid-run adapter sync: the incoming repository omits the streamed turn
     // (e.g. a compaction/rewrite snapshot that has not caught up yet).
@@ -104,16 +107,14 @@ describe('adapter sync keeps the live streamed tail when a mid-run snapshot omit
     const user = userMessage('u1', 'question')
     const streamedTail = message('a-stream', 'partial answer', RUNNING_STATUS)
 
-    const core = new IncrementalExternalStoreRuntimeCore(
-      adapterWith(repositoryOf([user, streamedTail], 'a-stream'))
-    )
+    const core = new IncrementalExternalStoreRuntimeCore(adapterWith(repositoryOf([user, streamedTail], 'a-stream')))
 
     core.setAdapter(adapterWith(repositoryOf([user]), { isRunning: true }))
 
     // The turn settles and the store snapshot now contains the final text.
     const finalTail = message('a-final', 'the full answer')
 
-    core.setAdapter(adapterWith(repositoryOf([user, finalTail]), 'a-final'))
+    core.setAdapter(adapterWith(repositoryOf([user, finalTail], 'a-final')))
 
     expect(visibleText(core)).toEqual(['question', 'the full answer'])
   })
@@ -124,21 +125,17 @@ describe('adapter sync keeps the live streamed tail when a mid-run snapshot omit
 
     // Force identical millisecond timestamps: a rewrite that lands the same
     // instant the draft started. The pin must yield to the store's truth.
-    streamedTail.createdAt = user.createdAt
+    ;(streamedTail as { createdAt: Date }).createdAt = user.createdAt
 
-    const core = new IncrementalExternalStoreRuntimeCore(
-      adapterWith(repositoryOf([user, streamedTail], 'a-stream')
-      )
-    )
+    const core = new IncrementalExternalStoreRuntimeCore(adapterWith(repositoryOf([user, streamedTail], 'a-stream')))
 
     core.setAdapter(adapterWith(repositoryOf([user]), { isRunning: true }))
 
     // The rewrite lands with its OWN id while the run is still marked running.
     const rewritten = message('a-final', 'rewritten answer', RUNNING_STATUS)
-    rewritten.createdAt = user.createdAt
+    ;(rewritten as { createdAt: Date }).createdAt = user.createdAt
 
-    core.setAdapter(adapterWith(repositoryOf([user, rewritten]), 'a-final'))
-
+    core.setAdapter(adapterWith(repositoryOf([user, rewritten], 'a-final')))
     // One reply, not the draft + the rewrite.
     expect(visibleText(core)).toEqual(['question', 'rewritten answer'])
   })

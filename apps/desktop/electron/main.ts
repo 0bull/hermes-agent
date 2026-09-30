@@ -587,6 +587,7 @@ import { createCheckoutStrategy } from './updater/checkout'
 import { readSourceUpdate, type SourceUpdate } from './updater/checkout-source'
 import { ExternalStrategy } from './updater/external'
 import { readUpdatesFeedBaseFromConfig, resolveFeedBaseUrl } from './updater/feed-config'
+import { updaterHelperScript } from './updater/helper-scripts'
 import { createChannelMacStrategy, createMacStrategy } from './updater/mac-client'
 import { UpdateOperation } from './updater/operation'
 import {
@@ -3667,9 +3668,9 @@ function createNativePackagedStrategy(
 
     const deps: ConstructorParameters<typeof AppInstallerStrategy>[0] = {
       python: payload.storePython,
-      // The checker ships inside the payload's repo snapshot (git archive of
-      // the committed tree): <payload>/<repo>/apps/desktop/scripts/.
-      script: path.join(payload.repoDir, 'apps', 'desktop', 'scripts', 'check-appinstaller-update.py'),
+      // The checker ships as an app resource: the payload's repo snapshot
+      // omits apps/ and scripts/.
+      script: updaterHelperScript(process.resourcesPath, 'check-appinstaller-update.py'),
       run: (python, script) =>
         runAppInstallerChecker(python, script, {
           env: { ...process.env, PYTHONPATH: payload.sitePackages },
@@ -3702,7 +3703,7 @@ function createNativePackagedStrategy(
               processId: process.pid,
               processStartTimeMs: Math.round(Date.now() - process.uptime() * 1000),
               identityName: PRODUCT_IDENTITY.msixAppIdWithOrg,
-              scriptPath: path.join(payload.repoDir, 'apps', 'desktop', 'scripts', 'update-relaunch-waiter.ps1')
+              scriptPath: updaterHelperScript(process.resourcesPath, 'update-relaunch-waiter.ps1')
             })
         })
     }
@@ -3717,7 +3718,7 @@ function createNativePackagedStrategy(
 
     return createStoreStrategy({
       python: payload.storePython,
-      script: path.join(payload.repoDir, 'apps', 'desktop', 'scripts', 'check-store-update.py'),
+      script: updaterHelperScript(process.resourcesPath, 'check-store-update.py'),
       sitePackages: payload.sitePackages,
       env: process.env,
       windowHandle: () => (BrowserWindow.getFocusedWindow() ?? mainWindow)?.getNativeWindowHandle() ?? null,
@@ -3733,7 +3734,7 @@ function createNativePackagedStrategy(
               processId: process.pid,
               processStartTimeMs: Math.round(Date.now() - process.uptime() * 1000),
               identityName: PRODUCT_IDENTITY.storeMsix!.identityName,
-              scriptPath: path.join(payload.repoDir, 'apps', 'desktop', 'scripts', 'update-relaunch-waiter.ps1'),
+              scriptPath: updaterHelperScript(process.resourcesPath, 'update-relaunch-waiter.ps1'),
               timeoutSeconds: 1860
             })
         })

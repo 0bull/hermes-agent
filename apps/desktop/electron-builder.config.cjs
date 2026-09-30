@@ -218,6 +218,16 @@ module.exports = {
     executableName: windowsExecutableName,
     legalTrademarks: displayName,
     target: ['msix'],
+    // The updaters' Python checkers and PowerShell relaunch waiter run outside
+    // the Electron process. The sealed payload's repo snapshot omits apps/ and
+    // scripts/, so they ship as resources (electron/updater/helper-scripts.ts).
+    extraResources: [
+      {
+        from: 'scripts',
+        to: 'updater-scripts',
+        filter: ['check-appinstaller-update.py', 'check-store-update.py', 'update-relaunch-waiter.ps1']
+      }
+    ],
     ...windowsSigning()
   },
   msix: {

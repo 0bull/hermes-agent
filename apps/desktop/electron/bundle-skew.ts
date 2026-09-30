@@ -98,6 +98,13 @@ export interface RunGitOptions {
    * hermes_cli/_subprocess_compat.py's NO_LAZY_FETCH_ENV.
    */
   env?: NodeJS.ProcessEnv
+  /**
+   * Bound on one git call, owned by the spawn implementation (execGit reaps
+   * the process tree when it fires). The checker's per-call bound — a
+   * path-filtered walk of a tree:0 clone can otherwise fetch its entire
+   * missing history — rides here.
+   */
+  timeoutMs?: number
 }
 
 export type RunGit = (
@@ -428,6 +435,7 @@ export function createBundleSkewProbe({
         env: { ...options.env, ...probeEnv },
         signal: controller.signal
       })
+
     const myGeneration = ++generation
 
     let timer: ReturnType<typeof setTimeout> | null = null

@@ -10,8 +10,8 @@ import {
   createBundleSkewProbe,
   detectBundleSkew,
   isFallbackCommit,
-  RUNTIME_PATHS,
-  type RunGit
+  type RunGit,
+  RUNTIME_PATHS
 } from './bundle-skew'
 
 const REPO = '/repo'
@@ -494,6 +494,7 @@ describe('createBundleSkewProbe', () => {
   // why the timeout abort stays).
   it('sets GIT_NO_LAZY_FETCH on every git call', async () => {
     const seen: Array<NodeJS.ProcessEnv | undefined> = []
+
     const git: RunGit = async (_args, options) => {
       seen.push(options.env)
 
@@ -1374,6 +1375,7 @@ describe('detectBundleSkew against a real git repo', () => {
 
     expect(packs()).toEqual(before)
     expect(result).toEqual(expected)
+  })
 
   // Finding: in a SHALLOW clone, exit 1 can mean the history that would prove
   // ancestry is not fetched yet. Real git, a real depth-1 clone: the probe

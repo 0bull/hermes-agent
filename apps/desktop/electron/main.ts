@@ -382,7 +382,7 @@ import {
 } from './native-oauth'
 import { runNativeLogin } from './native-oauth-login'
 import { loadNativeTokenSet, type NativeTokenStoreIo, persistNativeTokenSet } from './native-token-store'
-import { execGit, killTimedGitChildren, setNoConsoleGitRoots } from './no-console-git'
+import { killTimedGitChildren, planNoConsoleGitSpawn, setNoConsoleGitRoots, windowsGitHost } from './no-console-git'
 import { registerNativeNotifications } from './notification-ipc'
 import { isExpectedOauthNavigationAbort } from './oauth-navigation'
 import { serializeJsonBody, setJsonRequestHeaders } from './oauth-net-request'
@@ -556,7 +556,7 @@ import {
   windowOpacityFor,
   windowOpacityOptions
 } from './translucency'
-import { updateGateReason, waitForUpdateClearance } from './update-gate'
+import { waitForUpdateClearance } from './update-gate'
 import { readLiveUpdateMarker, updateHandoffConflict, writeUpdateMarker } from './update-marker'
 import {
   resolveUpdaterMechanism,
@@ -3586,13 +3586,7 @@ function runGit(args, options: any = {}): Promise<{ code: number; stdout: string
       stderr += text
       options.onLine?.('stderr', text)
     })
-    // A spawn-level failure means git itself never ran (missing, not
-    // executable, wrong CPU architecture) — a local problem, not a network one.
-    child.once('error', error => {
-      const local = describeGitSpawnFailure(error, gitBinary)
-
-      reject(local ? Object.assign(new Error(local), { kind: GIT_UNUSABLE, cause: error }) : error)
-    })
+    child.once('error', reject)
     // 'close', not 'exit': exit can fire before the stdio pipes drain, and a
     // resolved-early `remote get-url` came back as "" often enough to route
     // passive checks down the wrong remote path.
@@ -13807,12 +13801,14 @@ function installPreviewGuestEscapeHatch() {
 
           break
         }
+
         case 'close-preview': {
           event.preventDefault()
           sendClosePreviewRequested()
 
           break
         }
+
         default:
           break
       }

@@ -272,6 +272,7 @@ function runtimeBindingDelegate(
   return {
     archiveSession: vi.fn(),
     branchSession: vi.fn(),
+    branchSessionAtMessage: vi.fn(async () => true),
     deleteSession: vi.fn(),
     executeSlash: vi.fn(),
     interruptSession: vi.fn(),

@@ -1,5 +1,5 @@
-import { registryBackendScopeKey } from '@hermes/shared'
 import { useAuiState, useMessageRuntime } from '@assistant-ui/react'
+import { registryBackendScopeKey } from '@hermes/shared'
 import { useStore } from '@nanostores/react'
 import { type MouseEvent, useCallback } from 'react'
 
@@ -102,8 +102,10 @@ export function useMessageReactions(
   // source B (a tile from another connection, a cross-source resume).
   const runtimeId = useStore(useSessionView().$runtimeId)
   const activeProfile = useStore($activeGatewayProfile)
+
   const viewScope =
     sessionEventScopeFor(runtimeId) ?? registryBackendScopeKey(activeGatewayConnectionId(), activeProfile)
+
   const agentLive = rowId === undefined ? undefined : agentLiveReactions(agentAll, rowId, viewScope)
 
   return {

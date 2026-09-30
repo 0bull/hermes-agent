@@ -665,6 +665,8 @@ def _run_capture(cmd: "list[str]", *, timeout: int = 20) -> Optional[str]:
             check=False,
             timeout=timeout,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
     except (OSError, subprocess.SubprocessError):
         return None

@@ -251,6 +251,16 @@ function noninteractiveGitEnv(): NodeJS.ProcessEnv {
 // Matches the backend's default `plugins.clone_timeout_seconds`.
 const GIT_TIMEOUT_MS = 300_000
 
+// Test seam: every git process this module starts goes through here so a test
+// can count invocations (`setGitRunnerForTests`) instead of inferring them
+// from a missing binary's failure.
+let gitRunner: (gitBin: string, args: string[], cwd?: string) => Promise<{ code: number; stderr: string }> = runGit
+
+/** Swap the low-level git process runner (tests only; pass null to restore). */
+export function setGitRunnerForTests(runner: null | ((gitBin: string, args: string[], cwd?: string) => Promise<{ code: number; stderr: string }>)) {
+  gitRunner = runner ?? runGit
+}
+
 function runGit(gitBin: string, args: string[], cwd?: string): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
     const spec = hiddenGitSpawnSpec(gitBin, args, {
@@ -285,7 +295,7 @@ function runGit(gitBin: string, args: string[], cwd?: string): Promise<{ code: n
 }
 
 async function runGitOrThrow(gitBin: string, args: string[], cwd?: string): Promise<void> {
-  const { code, stderr } = await runGit(gitBin, args, cwd)
+  const { code, stderr } = await gitRunner(gitBin, args, cwd)
 
   if (code !== 0) {
     throw new Error(`Git ${args[0]} failed:\n${stderr.trim()}`)
@@ -427,14 +437,29 @@ export async function probePluginRepo(gitBin: string, identifier: string): Promi
   }
 }
 
+/**
+ * The backend's single rule for a plugin folder name (`_sanitize_plugin_name`,
+ * hermes_cli/plugins_cmd.py): one non-empty path segment with no `/`, `\` or
+ * `..`, never `.`/`..`. Anything it accepts, the agent half installs under —
+ * so this side must accept the same set or a paired install fails here while
+ * the backend half lands normally. Windows-reserved and trailing-dot/space
+ * restrictions are NOT part of that contract and used to reject names the
+ * backend accepts verbatim (`spaced name`, `Mixed Case`, `héllo`, `NUL`).
+ */
+function isBackendPluginName(name: string): boolean {
+  return (
+    name !== '' &&
+    name !== '.' &&
+    name !== '..' &&
+    !name.includes('/') &&
+    !name.includes('\\') &&
+    !name.includes('..')
+  )
+}
+
 function assertSafePluginName(name: unknown, source: string): asserts name is string {
-  if (
-    typeof name !== 'string' ||
-    !/^[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$/.test(name) ||
-    /[.\s]$/.test(name) ||
-    /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name)
-  ) {
-    throw new Error(`${source} name must be a safe path segment.`)
+  if (typeof name !== 'string' || !isBackendPluginName(name)) {
+    throw new Error(`${source} name must be a single safe path segment (no '/', '\\' or '..').`)
   }
 }
 
@@ -481,6 +506,17 @@ export async function installDesktopPluginFromGit(
       const pluginName = packageName ?? catalogName ?? desktopPluginFolderName(gitUrl, subdir)
       assertSafePluginName(pluginName, 'Plugin')
       const targetDir = path.join(desktopPluginsRoot, pluginName)
+
+      // Same containment the backend proves with `(plugins_dir / name).resolve()`:
+      // a name that passes the segment rule must still land inside the plugins
+      // root after symlink resolution (e.g. /tmp → /private/tmp), or the
+      // publish is a write outside it.
+      const resolvedRoot = await fsp.realpath(path.resolve(desktopPluginsRoot)).catch(() => path.resolve(desktopPluginsRoot))
+      const resolvedTarget = path.resolve(resolvedRoot, pluginName)
+
+      if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(resolvedRoot + path.sep)) {
+        throw new Error(`Plugin name '${pluginName}' resolves outside the plugins directory.`)
+      }
       const targetPlugin = path.join(targetDir, 'plugin.js')
 
       if ((await pathIsDirectory(targetDir)) || (await pathIsFile(targetPlugin))) {

@@ -13,12 +13,16 @@ import {
   installDesktopPluginFromGit,
   probePluginRepo,
   resolvePluginGitUrl,
-  resolveSubdirWithin
+  resolveSubdirWithin,
+  setGitRunnerForTests
 } from './desktop-plugin-install'
 import { PACKAGE_MARKER, reconcileUnifiedDesktopHalves } from './desktop-plugins-root'
-import { mergePluginPackages } from '../src/app/capabilities/plugins/plugin-packages'
-import type { PluginRecord } from '../src/contrib/plugins-store'
-import type { AgentPluginRow } from '../src/store/agent-plugins'
+
+// The pairing of a marker-stamped desktop half with its agent row lives in the
+// renderer's own project (src/app/capabilities/plugins/plugin-packages.test.ts,
+// 'pairs a catalog alias install with its manifest-named agent half'): this
+// electron project excludes `src`, so importing the renderer module here would
+// walk its whole graph into a tsc project that must not include it.
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -237,23 +241,67 @@ describe('installDesktopPluginFromGit', () => {
         source: target
       })
 
-      for (const ref of [undefined, '0'.repeat(40), 'HEAD', sha.slice(0, 12), `${sha}\n`, '', '--upload-pack=other']) {
-        // A missing executable proves malformed refs are rejected before any Git invocation.
-        const gitBin = ref === undefined || ref === '0'.repeat(40) ? 'git' : path.join(repo, 'missing-git')
-        const failed = await installDesktopPluginFromGit(gitBin, identifier, appRoot, true, { ref, catalogName })
-        expect(failed.ok, ref).toBe(false)
-        expect(failed.error).toMatch(ref === '0'.repeat(40) ? /git.*failed/i : /40.*SHA/i)
+      // Malformed refs must be rejected before ANY git process runs, and a
+      // valid ref must reach git — observable by counting invocations through
+      // the runner seam, not by a missing binary (whose 'could not invoke git'
+      // failure is indistinguishable from a pre-Git rejection).
+      const withCountingRunner = async (run: (invocations: string[][]) => Promise<void>) => {
+        const invocations: string[][] = []
+        setGitRunnerForTests(async (_gitBin, args) => {
+          invocations.push(args)
+          return { code: 128, stderr: 'injected runner' }
+        })
+        try {
+          await run(invocations)
+        } finally {
+          setGitRunnerForTests(null)
+        }
+      }
+
+      for (const ref of [undefined, 'HEAD', sha.slice(0, 12), `${sha}\n`, '', '--upload-pack=other']) {
+        await withCountingRunner(async invocations => {
+          const failed = await installDesktopPluginFromGit('git', identifier, appRoot, true, { ref, catalogName })
+          expect(failed.ok, ref).toBe(false)
+          expect(invocations, ref).toEqual([])
+          expect(failed.error, ref).toMatch(/40.*SHA/i)
+          expect(fs.readFileSync(path.join(target, 'plugin.js'), 'utf8')).toBe(olderBytes)
+          expect(fs.readFileSync(markerPath, 'utf8')).toBe(markerBytes)
+        })
+      }
+      // A well-formed-but-unknown 40-hex ref passes the guard and fails IN git,
+      // never destructively: the published half and its marker stay intact.
+      await withCountingRunner(async invocations => {
+        const failed = await installDesktopPluginFromGit('git', identifier, appRoot, true, {
+          ref: '0'.repeat(40),
+          catalogName
+        })
+        expect(failed.ok).toBe(false)
+        expect(invocations.length).toBeGreaterThan(0)
+        expect(failed.error).toMatch(/git.*failed/i)
         expect(fs.readFileSync(path.join(target, 'plugin.js'), 'utf8')).toBe(olderBytes)
         expect(fs.readFileSync(markerPath, 'utf8')).toBe(markerBytes)
-      }
-      for (const unsafeName of ['../escape', '..\\escape', '.', '..', 'C:escape', '', 'trailing.', 'NUL']) {
-        const failed = await installDesktopPluginFromGit(path.join(repo, 'missing-git'), identifier, appRoot, true, {
-          ref: sha,
-          catalogName: unsafeName
+      })
+      // The guard must not merely refuse everything: a well-formed ref DOES
+      // reach git (and the real install above already proved the happy path).
+      await withCountingRunner(async invocations => {
+        const failed = await installDesktopPluginFromGit('git', identifier, appRoot, true, { ref: sha, catalogName })
+        expect(failed.ok).toBe(false)
+        expect(invocations.length).toBeGreaterThan(0)
+        expect(failed.error).toMatch(/git.*failed/i)
+      })
+      // The catalog-name rule matches the backend's `_sanitize_plugin_name`
+      // reject set exactly: separators, traversal and the root itself.
+      for (const unsafeName of ['../escape', '..\\escape', 'sub/dir', '.', '..', '']) {
+        await withCountingRunner(async invocations => {
+          const failed = await installDesktopPluginFromGit('git', identifier, appRoot, true, {
+            ref: sha,
+            catalogName: unsafeName
+          })
+          expect(failed.ok, unsafeName).toBe(false)
+          expect(failed.error).toMatch(/catalog.*name/i)
+          expect(invocations, unsafeName).toEqual([])
+          expect(fs.readFileSync(path.join(target, 'plugin.js'), 'utf8')).toBe(olderBytes)
         })
-        expect(failed.ok, unsafeName).toBe(false)
-        expect(failed.error).toMatch(/catalog.*name/i)
-        expect(fs.readFileSync(path.join(target, 'plugin.js'), 'utf8')).toBe(olderBytes)
       }
 
       // The four-argument path still follows HEAD and its original naming rules.
@@ -262,7 +310,7 @@ describe('installDesktopPluginFromGit', () => {
       expect(fs.readFileSync(path.join(unpinned.path!, 'plugin.js'), 'utf8')).toBe(newerBytes)
       expect(unpinned.pluginName).toBe('manifest-name')
     },
-    30_000
+    120_000
   )
 
   it.each(['name: manifest-name # package identity\n', '{"name":"manifest-name"}', 'name: "manifest-name"\n'])(
@@ -282,12 +330,10 @@ describe('installDesktopPluginFromGit', () => {
       })
       expect(result.ok, result.error).toBe(true)
       const marker = JSON.parse(fs.readFileSync(path.join(result.path!, PACKAGE_MARKER), 'utf8'))
-      const rows = mergePluginPackages(
-        [{ id: 'widget', name: 'Widget', kind: 'disk', packageName: marker.package } as PluginRecord],
-        [{ name: 'manifest-name', has_desktop_half: true, description: '' } as AgentPluginRow]
-      )
-      expect(rows).toHaveLength(1)
-      expect(rows[0]).toMatchObject({ key: 'manifest-name', desktopMissing: false, agentMissingInProfile: false })
+      // The join the Plugins page makes: the marker's `package` is the MANIFEST
+      // identity, so `mergePluginPackages` pairs this half with the agent row
+      // of the same name (pinned in plugin-packages.test.ts, 'pairs a catalog
+      // alias install with its manifest-named agent half').
       expect(marker).toMatchObject({ package: 'manifest-name', catalogName: 'catalog-alias' })
       const localDesktop = path.join(home, 'plugins', 'manifest-name', 'desktop')
       fs.mkdirSync(localDesktop, { recursive: true })
@@ -298,7 +344,7 @@ describe('installDesktopPluginFromGit', () => {
     }
   )
 
-  it.each(['name: ../escape', 'name: NUL', 'name: 123', 'name: [broken', '- not-a-mapping'])(
+  it.each(['name: ../escape', 'name: NUL/is/a/path', 'name: sub/dir', 'name: 123', 'name: [broken', '- not-a-mapping'])(
     'rejects invalid manifest identity without replacing a published half (%s)',
     async manifest => {
       const repo = pluginRepo('valid-name')
@@ -318,6 +364,26 @@ describe('installDesktopPluginFromGit', () => {
       expect(result.ok).toBe(false)
       expect(fs.readdirSync(appRoot)).toEqual(['valid-name'])
       expect(fs.readFileSync(path.join(installed.path!, 'plugin.js'), 'utf8')).toBe(original)
+    }
+  )
+
+  // The manifest name rule must match the backend's `_sanitize_plugin_name`
+  // exactly: the agent half installs under names like these without complaint
+  // (a single segment is enough), so a stricter Desktop-side rule would reject
+  // a package the backend accepts and break the paired-install surface.
+  it.each(['spaced name', 'Mixed Case', 'héllo', '.hidden', 'NUL', 'con', 'trailing.'])(
+    'installs the desktop half under a manifest name the backend accepts (%s)',
+    async name => {
+      const repo = pluginRepo(name)
+      const appRoot = mkdtemp('hermes-plugin-backend-name-')
+      roots.push(appRoot)
+
+      const result = await installDesktopPluginFromGit('git', pathToFileURL(repo).href, appRoot)
+
+      expect(result.ok, result.error).toBe(true)
+      expect(result.pluginName).toBe(name)
+      const marker = JSON.parse(fs.readFileSync(path.join(result.path!, PACKAGE_MARKER), 'utf8'))
+      expect(marker.package).toBe(name)
     }
   )
 

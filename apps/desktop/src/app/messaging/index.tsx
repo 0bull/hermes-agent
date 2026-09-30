@@ -26,7 +26,7 @@ import {
 } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
 import { openExternalLink } from '@/lib/external-link'
-import { AlertTriangle, ExternalLink, RefreshCw, Save, Trash2 } from '@/lib/icons'
+import { AlertTriangle, ExternalLink, Play, Power, RefreshCw, Save, Trash2 } from '@/lib/icons'
 import { platformStatusTone } from '@/lib/platform-status'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
@@ -997,7 +997,8 @@ function PlatformActionBar({
             state that can be stopped. */}
         {platform.gateway_running && (
           <Button disabled={gatewayRestarting} onClick={onGatewayStop} size="sm" variant="secondary">
-            {gatewayRestarting ? m.restarting : m.stopGateway}
+            {gatewayRestarting ? <RefreshCw className="animate-spin" /> : <Power />}
+            {m.stopGateway}
           </Button>
         )}
         {hasEdits && <span className="text-xs text-muted-foreground">{m.unsavedChanges}</span>}
@@ -1167,8 +1168,8 @@ function PlatformHint({
           gateway's Stop lives in the detail action bar. */}
       {!platform.gateway_running && (
         <Button disabled={gatewayRestarting} onClick={onGatewayStart} size="xs" variant="secondary">
-          <RefreshCw className={gatewayRestarting ? 'animate-spin' : undefined} />
-          {gatewayRestarting ? t.messaging.restarting : t.messaging.startGateway}
+          {gatewayRestarting ? <RefreshCw className="animate-spin" /> : <Play />}
+          {t.messaging.startGateway}
         </Button>
       )}
     </p>

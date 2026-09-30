@@ -1077,17 +1077,44 @@ class TestRespawnEnvPreservation:
 
     @pytest.mark.skipif(sys.platform == "win32", reason="POSIX respawn path")
     def test_tokenless_fixed_port_respawn_is_refused(self, capsys):
-        """R4 self-negation: the environment was readable and carries NO session token — a
-        fixed-port respawn would mint an unknown token and 401 the Desktop while fighting
-        the launchd job. Refuse it (and say so) instead of spawning the impostor."""
+        """R4 self-negation, narrowed: the environment was readable, carries NO session token,
+        AND the fixed port belongs to a loaded launchd job — that respawn would mint an
+        unknown token and 401 the Desktop while fighting the job. Refuse it (and say so)
+        instead of spawning the impostor."""
         argv = ["hermes", "serve", "--host", "127.0.0.1", "--port", "9119"]
+        job = ("gui/501", "com.hermes.nova-serve",
+               ["hermes", "serve", "--host", "127.0.0.1", "--port", "9119"], 89757)
         with patch.object(main_dashboard, "_respawnable_command_for_current_install",
                           side_effect=lambda a: list(a)), \
+             patch.object(main_dashboard, "_loaded_launchd_backend_jobs", return_value=[job]), \
              patch("subprocess.Popen") as popen:
             failed = main_dashboard._respawn_dashboard_processes([list(argv)], [{"HERMES_HOME": "/Users/me/.hermes"}])
         popen.assert_not_called()
         assert failed == [argv]
         assert "session token" in capsys.readouterr().out
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX respawn path")
+    def test_tokenless_fixed_port_respawn_without_supervisor_still_spawns(self):
+        """The refusal is only the launchd conflict case (#121596): with no loaded launchd
+        job claiming the port, a token-less respawn is no worse than what was killed — the
+        victim may predate session tokens, or (e2e-upgrade) have been started from a clean
+        env. Refusing it meant the dashboard never came back (#40449 regression)."""
+
+        class _LiveProc:
+            returncode = None
+
+            def poll(self):
+                return None
+
+        argv = ["hermes", "serve", "--host", "127.0.0.1", "--port", "9119"]
+        with patch.object(main_dashboard, "_respawnable_command_for_current_install",
+                          side_effect=lambda a: list(a)), \
+             patch.object(main_dashboard, "_loaded_launchd_backend_jobs", return_value=[]), \
+             patch("subprocess.Popen", return_value=_LiveProc()) as popen:
+            failed = main_dashboard._respawn_dashboard_processes(
+                [list(argv)], [{"HERMES_HOME": "/Users/me/.hermes"}])
+        popen.assert_called_once()
+        assert failed == []
 
     @pytest.mark.skipif(sys.platform == "win32", reason="POSIX respawn path")
     def test_tokenless_fixed_port_respawn_with_unreadable_env_still_spawns(self):

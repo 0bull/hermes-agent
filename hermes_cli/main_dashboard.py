@@ -462,6 +462,17 @@ def _respawn_env_for_pid(pid: int | None) -> dict[str, str] | None:
     return env
 
 
+def _launchd_job_for_fixed_port(port: int, jobs: list[tuple[str, str, list[str], int | None]]) -> tuple[str, str] | None:
+    """``(domain, label)`` of the loaded launchd job whose plist serves *port* — the port's
+    supervisor. A job whose plist fixes that port will KeepAlive-crash-loop against any
+    detached process holding it (the #121596 impostor), so a respawn onto a supervised
+    port is refused while a token-less respawn on an unsupervised port stays allowed."""
+    for domain, label, argv, _live_pid in jobs:
+        if _fixed_port_for_dashboard_argv(list(argv)) == port:
+            return (domain, label)
+    return None
+
+
 def _respawn_dashboard_processes(commands: list[list[str]], envs: "list[dict[str, str] | None] | None" = None) -> list[list[str]]:
     """Respawn manually-started dashboards after ``hermes update``, detached, logging to
     ``logs/dashboard-restart.log``; returns the argvs that failed to spawn. Callers pre-filter via
@@ -487,16 +498,19 @@ def _respawn_dashboard_processes(commands: list[list[str]], envs: "list[dict[str
         if "dashboard" in command and "--no-open" not in command:
             command = [*command, "--no-open"]
         env = envs[index] if envs is not None and index < len(envs) else None
-        # #121596 self-negation: a fixed-port respawn without the victim's session token is an
-        # impostor by construction — it mints a fresh HERMES_DASHBOARD_SESSION_TOKEN the Desktop
-        # does not know, 401s every authed call, and EADDRINUSE-fights the supervising launchd
-        # job. The victim could have been token-less (started before tokens existed) — then the
-        # respawn would be no worse than what was killed, so spawn anyway.
+        # #121596, narrowed: a token-less respawn onto a port a LOADED launchd job's plist
+        # fixes is the impostor by construction — it mints a fresh HERMES_DASHBOARD_SESSION_TOKEN
+        # the Desktop does not know, 401s every authed call, and EADDRINUSE-crash-loops the
+        # supervising job. That is only this PR's conflict case. A token-less victim (started
+        # before tokens existed, or e2e's clean-env dashboard) is NO worse than what was killed,
+        # and refusing it meant the dashboard never came back — so spawn anyway (#40449): the
+        # refusal fires only when the port has a supervisor to fight.
         port = _fixed_port_for_dashboard_argv(command)
-        if port and env is not None and not env.get("HERMES_DASHBOARD_SESSION_TOKEN"):
+        launchd_owner = _launchd_job_for_fixed_port(port, _loaded_launchd_backend_jobs()) if port else None
+        if launchd_owner and env is not None and not env.get("HERMES_DASHBOARD_SESSION_TOKEN"):
             failed.append((original, command,
-                          "refused: a fixed-port respawn without the captured session token "
-                          "would 401 the Desktop and fight the port's supervisor (#121596)"))
+                          f"refused: a fixed-port respawn without the captured session token "
+                          f"would 401 the Desktop and fight launchd job {launchd_owner[0]}/{launchd_owner[1]} (#121596)"))
             continue
         try:
             with open(log_path, "ab") as log_f:

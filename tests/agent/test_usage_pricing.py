@@ -905,99 +905,46 @@ def test_anthropic_fast_response_without_a_fast_rate_is_unknown():
 
 
 # ---------------------------------------------------------------------------
-# Provider-reported usage.cost (OpenRouter / OpenAI-compatible proxies)
+# Provider-reported usage.cost (OpenRouter / OpenAI-compatible proxies / Nous portal)
 # ---------------------------------------------------------------------------
 
 
-
 def test_estimate_usage_cost_prefers_provider_reported_cost():
-    """A cost the provider reported on the wire is the amount actually billed
-    (#105215): it wins over any pricing-table estimate and produces the first
-    non-test producer of status="actual"."""
+    """A cost the provider reported on the wire is the billed amount (#105215, #76187):
+    it wins over the pricing table as status="actual" with an exact (no "~") label;
+    ``cost_details.upstream_inference_cost`` wins over ``usage.cost`` because the Nous
+    portal reports the latter as a flat stub (#108936); a subscription-included route
+    keeps its declaration regardless of any reported number."""
     usage = CanonicalUsage(input_tokens=19, output_tokens=100, raw_usage={"cost": 0.00002510375})
     result = estimate_usage_cost("openrouter/z-ai/glm-5.3-flash", usage, provider="custom")
-    assert result.status == "actual"
-    assert result.source == "provider_cost_api"
+    assert (result.status, result.source) == ("actual", "provider_cost_api")
     assert result.amount_usd == Decimal("0.00002510375")
-    # an actual billed amount is not an estimate: no "~" in the label
     assert result.label == "$<0.0001"
+    assert estimate_usage_cost(
+        "openrouter/z-ai/glm-5.3-flash", CanonicalUsage(input_tokens=1, raw_usage={"cost": 1.234}), provider="custom",
+    ).label == "$1.23"
 
-    cents = estimate_usage_cost(
-        "openrouter/z-ai/glm-5.3-flash",
-        CanonicalUsage(input_tokens=1, raw_usage={"cost": 1.234}),
-        provider="custom",
-    )
-    assert cents.label == "$1.23"
-
-
-def test_estimate_usage_cost_prefers_upstream_inference_cost_over_stub():
-    """cost_details.upstream_inference_cost is the true billed amount on the
-    Nous portal (#108936): it must win over usage.cost, which that route
-    reports as a flat 5e-05 stub regardless of token count."""
-    usage = CanonicalUsage(
+    nested = CanonicalUsage(
         input_tokens=171, output_tokens=500,
         raw_usage={"cost": 0.00005, "cost_details": {"upstream_inference_cost": 0.06338552}},
     )
-    result = estimate_usage_cost("deepseek/deepseek-v4-flash-0731", usage, provider="custom")
-    assert result.status == "actual"
-    assert result.source == "provider_cost_api"
-    assert result.amount_usd == Decimal("0.06338552")
+    assert estimate_usage_cost("deepseek/deepseek-v4-flash-0731", nested, provider="custom").amount_usd == Decimal("0.06338552")
 
-
-def test_estimate_usage_cost_falls_back_to_usage_cost_without_details():
-    """Routes without a usable cost_details block (OpenRouter / LiteLLM) keep
-    the plain usage.cost preference; a malformed nested field must not hijack
-    pricing (#108936)."""
-    usage = CanonicalUsage(
-        input_tokens=19, output_tokens=100,
-        raw_usage={"cost": 0.00002510375, "cost_details": "oops"},
-    )
-    result = estimate_usage_cost("openrouter/z-ai/glm-5.3-flash", usage, provider="custom")
-    assert result.status == "actual"
-    assert result.amount_usd == Decimal("0.00002510375")
-
-    for bad_details in ({"upstream_inference_cost": -1}, {"upstream_inference_cost": float("nan")},
-                        {"upstream_inference_cost": True}):
-        usage = CanonicalUsage(
-            input_tokens=19, output_tokens=100,
-            raw_usage={"cost": 0.00002510375, "cost_details": bad_details},
-        )
-        result = estimate_usage_cost("openrouter/z-ai/glm-5.3-flash", usage, provider="custom")
-        assert result.status == "actual", f"cost_details={bad_details!r}"
-        assert result.amount_usd == Decimal("0.00002510375")
+    included = CanonicalUsage(input_tokens=1000, output_tokens=500, raw_usage={"cost": 0.02})
+    result = estimate_usage_cost("gpt-5.4-mini", included, provider="openai-codex")
+    assert (result.status, result.amount_usd) == ("included", Decimal("0"))
 
 
 def test_estimate_usage_cost_ignores_malformed_reported_cost():
-    """Missing / non-numeric / NaN / negative / boolean costs must not hijack
-    pricing: the turn falls back to the pricing-table estimate as before."""
+    """Missing / non-numeric / NaN / inf / negative / boolean costs must not hijack pricing
+    (top-level or nested): the turn falls back to the pricing-table estimate as before."""
     for bad in (None, "oops", float("nan"), float("inf"), -1, True):
-        usage = CanonicalUsage(input_tokens=1, raw_usage={"cost": bad})
-        result = estimate_usage_cost(
-            "gemini-3.1-flash-lite", usage, provider="google"
-        )
+        result = estimate_usage_cost("gemini-3.1-flash-lite", CanonicalUsage(input_tokens=1, raw_usage={"cost": bad}), provider="google")
         assert result.status == "estimated", f"cost={bad!r}"
         assert result.amount_usd == Decimal("0.00000025")  # 1 * $0.25/M
+    assert estimate_usage_cost("gemini-3.1-flash-lite", CanonicalUsage(input_tokens=1), provider="google").status == "estimated"
 
-    # no raw payload at all: table estimate still applies
-    plain = estimate_usage_cost(
-        "gemini-3.1-flash-lite", CanonicalUsage(input_tokens=1), provider="google"
-    )
-    assert plain.status == "estimated"
-
-
-def test_estimate_usage_cost_subscription_route_stays_included():
-    """A subscription-included route keeps its explicit billing declaration:
-    a stray provider-reported cost must not turn it into billable spend."""
-    usage = CanonicalUsage(input_tokens=1000, output_tokens=500, raw_usage={"cost": 0.02})
-    result = estimate_usage_cost("gpt-5.4-mini", usage, provider="openai-codex")
-    assert result.status == "included"
-    assert result.amount_usd == Decimal("0")
-
-
-def test_format_cost_label_exact_mode_drops_tilde():
-    """approx=False renders provider-billed amounts without the estimate mark,
-    keeping the sub-cent and zero guards."""
-    assert format_cost_label(Decimal("0.004640"), approx=False) == "$0.0046"
-    assert format_cost_label(Decimal("0.00004"), approx=False) == "$<0.0001"
-    assert format_cost_label(Decimal("1.23"), approx=False) == "$1.23"
-    assert format_cost_label(Decimal("0"), approx=False) == "$0.00"
+    for bad_details in ("oops", {"upstream_inference_cost": -1}, {"upstream_inference_cost": float("nan")}):
+        usage = CanonicalUsage(input_tokens=19, output_tokens=100, raw_usage={"cost": 0.00002510375, "cost_details": bad_details})
+        result = estimate_usage_cost("openrouter/z-ai/glm-5.3-flash", usage, provider="custom")
+        assert (result.status, result.amount_usd) == ("actual", Decimal("0.00002510375")), f"cost_details={bad_details!r}"

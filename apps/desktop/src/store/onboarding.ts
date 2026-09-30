@@ -363,10 +363,10 @@ async function fetchProviderDefaultModel(
 
 async function fetchExistingProviderModel(
   preferredSlugs: string[],
-  profile?: null | string
+  scope?: OnboardingContext['scope']
 ): Promise<null | { providerSlug: string; defaultModel: string }> {
   try {
-    const current = await getGlobalModelInfo(profile)
+    const current = await getGlobalModelInfo(scope)
     const providerSlug = current.provider.trim()
     const defaultModel = current.model.trim()
     const preferred = preferredSlugs.map(slug => slug.toLowerCase())
@@ -417,7 +417,7 @@ async function completeWithModelConfirm(
   // (#68144). fetchExistingProviderModel resolves the live assignment, so it
   // holds even when the configured model is no longer in the curated options
   // list (the keep-guard inside fetchProviderDefaultModel does not).
-  const existing = await fetchExistingProviderModel(preferredSlugs, ctx.scope?.profile ?? undefined)
+  const existing = await fetchExistingProviderModel(preferredSlugs, ctx.scope)
   const defaults = existing ?? (await fetchProviderDefaultModel(preferredSlugs, ctx.scope))
 
   if (generation !== flowGeneration) {

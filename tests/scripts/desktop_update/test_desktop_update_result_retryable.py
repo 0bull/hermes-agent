@@ -45,8 +45,8 @@ def _run_handoff(home: Path, install_root: Path, launcher_body: str) -> dict:
     # venv/bin/python{,3} with `import encodings`; without these the probe
     # would classify the stub install as a bricked venv (#95759) and mask the
     # failure class under test.
-    _write_exe(install_root / "venv" / "bin" / "python3", "#!/bin/bash\nexit 0\n")
-    _write_exe(install_root / "venv" / "bin" / "python", "#!/bin/bash\nexit 0\n")
+    _write_exe(install_root / "venv" / "bin" / "python3", "#!/usr/bin/env bash\nexit 0\n")
+    _write_exe(install_root / "venv" / "bin" / "python", "#!/usr/bin/env bash\nexit 0\n")
     _write_exe(install_root / "venv" / "bin" / "hermes", launcher_body)
     env = dict(os.environ)
     env["HERMES_HOME"] = str(home)
@@ -79,7 +79,7 @@ def _run_handoff(home: Path, install_root: Path, launcher_body: str) -> dict:
         f"the hand-off never wrote its result file (exit {proc.returncode}).\n"
         f"stdout: {proc.stdout}\nstderr: {proc.stderr}"
     )
-    return json.loads(result_path.read_text(encoding="utf-8"))
+    return json.loads(result_path.read_text(encoding="utf-8-sig"))
 
 
 def _launcher(exit_code: int, *lines: str) -> str:
@@ -87,7 +87,7 @@ def _launcher(exit_code: int, *lines: str) -> str:
     other invocation prints the given lines and exits with exit_code."""
     printed = "".join(f'echo "{line}"\n' for line in lines)
     return (
-        "#!/bin/bash\n"
+        "#!/usr/bin/env bash\n"
         'if [ "$1" = "update" ] && [ "$2" = "--help" ]; then echo "  --keep-stash"; exit 0; fi\n'
         f"{printed}"
         f"exit {exit_code}\n"
